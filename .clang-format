@@ -1,8 +1,10 @@
 BasedOnStyle: GNU
-IndentWidth: 4
-TabWidth: 4
-UseTab: ForIndentation
-BreakBeforeBraces: GNU
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+BreakBeforeBraces: Allman
+IndentCaseLabels: true
+IndentWidth: 2
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 ColumnLimit: 80
