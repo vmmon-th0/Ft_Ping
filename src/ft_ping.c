@@ -33,7 +33,7 @@ main (int argc, char *argv[])
         break;
       case 'h':
         show_usage ();
-        break;
+        exit(EXIT_SUCCESS);
       default:
         fprintf (stderr, "%c: not implemented\n", opt);
         exit (EXIT_FAILURE);
