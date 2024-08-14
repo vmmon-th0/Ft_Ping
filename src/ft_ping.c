@@ -33,7 +33,7 @@ resolve_hostname (const char *hostname, char *ip_addr)
 
     memset (&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_socktype = SOCK_RAW;
 
     if ((status = getaddrinfo (hostname, NULL, &hints, &res)) != 0)
     {
@@ -105,7 +105,7 @@ compute_checksum (struct ping_packet *ping_pkt, size_t len)
         sum += ((const uint8_t *)data)[len - 1] << 8;
     }
 
-    /*  Fold 32-bit sum to 16 bits */
+    /* Fold 32-bit sum to 16 bits */
     while (sum >> 16)
     {
         sum = (sum & 0xFFFF) + (sum >> 16);
@@ -134,7 +134,8 @@ fill_icmp_packet (struct ping_packet *ping_pkt)
     ping_pkt->hdr.un.echo.sequence = sequence++;
     memset (ping_pkt->data, 0xA5, sizeof (ping_pkt->data));
     ping_pkt->hdr.checksum = 0;
-    ping_pkt->hdr.checksum = compute_checksum (ping_pkt, sizeof (ping_pkt));
+    ping_pkt->hdr.checksum
+        = compute_checksum (ping_pkt, sizeof (struct ping_packet));
 }
 
 void
@@ -144,9 +145,9 @@ send_icmp (int sock_fd, struct sockaddr_in *addr)
 
     fill_icmp_packet (&ping_pkt);
 
-    if (sendto (sock_fd, &ping_pkt, sizeof (ping_pkt), 0,
+    if (sendto (sock_fd, &ping_pkt, sizeof (struct ping_packet), 0,
                 (struct sockaddr *)addr, sizeof (*addr))
-        <= 0)
+        == -1)
     {
         perror ("sendto");
         close (sock_fd);
@@ -154,6 +155,43 @@ send_icmp (int sock_fd, struct sockaddr_in *addr)
     }
 
     printf ("Ping sent to %s\n", inet_ntoa (addr->sin_addr));
+}
+
+void
+recv_icmp (int sock_fd)
+{
+    char buffer[PACKET_SIZE + sizeof (struct iphdr)];
+    struct sockaddr_in r_addr;
+    socklen_t addr_len = sizeof (r_addr);
+
+    if (recvfrom (sock_fd, buffer, sizeof (buffer), 0,
+                  (struct sockaddr *)&r_addr, &addr_len)
+        == -1)
+    {
+        perror ("recvfrom");
+        close (sock_fd);
+        exit (EXIT_FAILURE);
+    }
+
+    struct iphdr *ip_hdr = (struct iphdr *)buffer;
+    struct icmphdr *icmp_hdr
+        = (struct icmphdr *)(buffer + ip_hdr->ihl * 4);
+
+    printf("Received ICMP packet:\n");
+    printf("Type: %d\n", icmp_hdr->type);
+    printf("Code: %d\n", icmp_hdr->code);
+    printf("Checksum: %d\n", ntohs(icmp_hdr->checksum));
+    printf("ID: %d\n", ntohs(icmp_hdr->un.echo.id));
+    printf("Sequence: %d\n", icmp_hdr->un.echo.sequence);
+
+    if (icmp_hdr->type == ICMP_ECHOREPLY)
+    {
+        printf ("Ping succeeds from %s\n", inet_ntoa (r_addr.sin_addr));
+    }
+    else
+    {
+        printf ("Received non-echo reply type: %d\n", icmp_hdr->type);
+    }
 }
 
 /**
@@ -188,10 +226,6 @@ ft_ping_coord (const char *hostname)
 
     /* Socket options */
 
-    struct timeval timeout;
-    timeout.tv_sec = TIMEOUT;
-    timeout.tv_usec = 0;
-
     memset (&addr, 0, sizeof (addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons (0);
@@ -208,7 +242,13 @@ ft_ping_coord (const char *hostname)
         exit (EXIT_FAILURE);
     }
 
-    send_icmp (sock_fd, &addr);
+    while (1)
+    {
+        send_icmp (sock_fd, &addr);
+        recv_icmp (sock_fd);
+        sleep (1);
+    }
+
     close (sock_fd);
 }
 
