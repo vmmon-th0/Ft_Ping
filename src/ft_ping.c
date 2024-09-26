@@ -1,19 +1,17 @@
 #include "ft_ping.h"
 
-#define PACKET_SIZE 64
-#define TIMEOUT 1
+static char short_options[] = "vhs:c:w:t:";
 
-struct ping_packet
-{
-    struct icmphdr hdr;
-    char data[PACKET_SIZE - sizeof (struct icmphdr)];
-};
+static struct option long_options[]
+    = { { "verbose", no_argument, NULL, 'v' },
+        { "help", no_argument, NULL, 'h' },
+        { "packetsize", required_argument, NULL, 's' },
+        { "count", required_argument, NULL, 'c' },
+        { "deadline", required_argument, NULL, 'w' },
+        { "ttl", required_argument, NULL, 't' },
+        { NULL, 0, NULL, 0 } };
 
-static char short_options[] = "vh";
-
-static struct option long_options[] = { { "verbose", no_argument, NULL, 'v' },
-                                        { "help", no_argument, NULL, 'h' },
-                                        { NULL, no_argument, NULL, 0 } };
+struct s_ping g_ping;
 
 void
 show_usage (void)
@@ -174,15 +172,14 @@ recv_icmp (int sock_fd)
     }
 
     struct iphdr *ip_hdr = (struct iphdr *)buffer;
-    struct icmphdr *icmp_hdr
-        = (struct icmphdr *)(buffer + ip_hdr->ihl * 4);
+    struct icmphdr *icmp_hdr = (struct icmphdr *)(buffer + ip_hdr->ihl * 4);
 
-    printf("Received ICMP packet:\n");
-    printf("Type: %d\n", icmp_hdr->type);
-    printf("Code: %d\n", icmp_hdr->code);
-    printf("Checksum: %d\n", ntohs(icmp_hdr->checksum));
-    printf("ID: %d\n", ntohs(icmp_hdr->un.echo.id));
-    printf("Sequence: %d\n", icmp_hdr->un.echo.sequence);
+    printf ("Received ICMP packet:\n");
+    printf ("Type: %d\n", icmp_hdr->type);
+    printf ("Code: %d\n", icmp_hdr->code);
+    printf ("Checksum: %d\n", ntohs (icmp_hdr->checksum));
+    printf ("ID: %d\n", ntohs (icmp_hdr->un.echo.id));
+    printf ("Sequence: %d\n", icmp_hdr->un.echo.sequence);
 
     if (icmp_hdr->type == ICMP_ECHOREPLY)
     {
@@ -284,11 +281,29 @@ main (int argc, char *argv[])
         switch (opt)
         {
             case 'v':
-                printf ("Verbose with argument : %s\n", optarg);
+                printf ("Verbose mode enabled.\n");
+                g_ping.options.verbose = true;
                 break;
             case 'h':
                 show_usage ();
+                g_ping.options.help = true;
                 exit (EXIT_SUCCESS);
+            case 's':
+                g_ping.options.packet_size = true;
+                printf ("Packet size: %s\n", optarg);
+                break;
+            case 'c':
+                g_ping.options.count = true;
+                printf ("Count: %s\n", optarg);
+                break;
+            case 'w':
+                g_ping.options.deadline = true;
+                printf ("Deadline: %s\n", optarg);
+                break;
+            case 't':
+                g_ping.options.ttl = true;
+                printf ("TTL: %s\n", optarg);
+                break;
             default:
                 fprintf (stderr, "%c: not implemented\n", opt);
                 exit (EXIT_FAILURE);
