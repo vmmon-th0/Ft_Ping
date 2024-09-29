@@ -3,6 +3,7 @@
         "socket.h": "c",
         "ip_icmp.h": "c",
         "unistd.h": "c",
-        "netdb.h": "c"
+        "netdb.h": "c",
+        "ft_ping.h": "c"
     }
 }

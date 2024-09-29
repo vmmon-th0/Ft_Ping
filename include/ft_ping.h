@@ -63,4 +63,12 @@ struct s_ping
 
 extern struct s_ping g_ping;
 
+void ft_ping_coord (const char *hostname);
+
+void fill_icmp_packet (struct ping_packet *ping_pkt);
+
+void compute_std_rtt ();
+
+int resolve_hostname (const char *hostname);
+
 #endif
