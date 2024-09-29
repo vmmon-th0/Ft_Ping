@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "socket.h": "c",
-        "ip_icmp.h": "c"
+        "ip_icmp.h": "c",
+        "unistd.h": "c",
+        "netdb.h": "c"
     }
 }
