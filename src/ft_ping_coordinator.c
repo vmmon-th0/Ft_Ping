@@ -62,14 +62,47 @@ recv_icmp ()
             icmp_hdr->un.echo.sequence, g_ping.options.ttl,
             g_ping.rtt_metrics.std_rtt);
 
-    if (icmp_hdr->type == ICMP_ECHOREPLY)
+    switch (icmp_hdr->type)
     {
-        // printf ("Ping succeeds from %s\n", inet_ntoa (r_addr.sin_addr));
+        case ICMP_ECHOREPLY:
+            printf ("Type: ICMP Echo Reply\n");
+            break;
+        case ICMP_DEST_UNREACH:
+            printf ("Type: ICMP Destination Unreachable\n");
+            break;
+        case ICMP_SOURCE_QUENCH:
+            printf ("Type: ICMP Source Quench\n");
+            break;
+        case ICMP_REDIRECT:
+            printf ("Type: ICMP Redirect\n");
+            break;
+        case ICMP_ECHO:
+            printf ("Type: ICMP Echo Request\n");
+            break;
+        case ICMP_TIME_EXCEEDED:
+            printf ("Type: ICMP Time Exceeded\n");
+            break;
+        case ICMP_PARAMETERPROB:
+            printf ("Type: ICMP Parameter Problem\n");
+            break;
+        case ICMP_TIMESTAMP:
+            printf ("Type: ICMP Timestamp Request\n");
+            break;
+        case ICMP_TIMESTAMPREPLY:
+            printf ("Type: ICMP Timestamp Reply\n");
+            break;
+        default:
+            printf ("Type: Unknown ICMP Type\n");
     }
-    else
-    {
-        // printf ("Received non-echo reply type: %d\n", icmp_hdr->type);
-    }
+
+    // if (icmp_hdr->type == ICMP_ECHOREPLY)
+    // {
+    //     // printf ("Ping succeeds from %s\n", inet_ntoa (r_addr.sin_addr));
+    // }
+    // else
+    // {
+    //     // printf ("Received non-echo reply type: %d\n", icmp_hdr->type);
+    // }
 }
 
 /**
@@ -108,7 +141,7 @@ ft_ping_coordinator (const char *hostname)
     g_ping.sock_info.addr.sin_addr.s_addr
         = inet_addr (g_ping.sock_info.ip_addr);
 
-    uint8_t ttl = 64;
+    uint8_t ttl = g_ping.options.ttl ? g_ping.options.ttl : 64;
 
     /* Configure the IP_TTL option to define the Time To Live (TTL) of IP
     packets sent by the socket, using the IP protocol level (IPPROTO_IP). */
