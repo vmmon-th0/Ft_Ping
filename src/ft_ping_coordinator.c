@@ -1,5 +1,47 @@
 #include "ft_ping.h"
 
+static int
+resolve_hostname (const char *hostname)
+{
+    struct addrinfo hints, *res, *p;
+    int status;
+
+    memset (&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_RAW;
+
+    if ((status = getaddrinfo (hostname, NULL, &hints, &res)) != 0)
+    {
+        fprintf (stderr, "getaddrinfo: %s\n", gai_strerror (status));
+        return -1;
+    }
+
+    for (p = res; p != NULL; p = p->ai_next)
+    {
+        if (p->ai_family == AF_INET)
+        {
+            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+            void *addr = &(ipv4->sin_addr);
+
+            if (inet_ntop (p->ai_family, addr, g_ping.sock_info.ip_addr,
+                           INET_ADDRSTRLEN)
+                == NULL)
+            {
+                perror ("inet_ntop");
+                freeaddrinfo (res);
+                return -1;
+            }
+
+            // printf ("IPv4 addr for %s: %s\n", hostname,
+            //         g_ping.sock_info.ip_addr);
+            break;
+        }
+    }
+
+    freeaddrinfo (res);
+    return 0;
+}
+
 static void
 send_icmp ()
 {
@@ -57,51 +99,41 @@ recv_icmp ()
     actual rtt of the packet, later we have to create states and register them
     to have more metrics on the different types of RTT's. */
 
-    printf ("64 bytes from %s (%s): icmp_seq=%d ttl=%hhu time=%.2fms\n",
-            g_ping.sock_info.hostname, g_ping.sock_info.ip_addr,
-            icmp_hdr->un.echo.sequence, g_ping.options.ttl,
-            g_ping.rtt_metrics.std_rtt);
+    g_ping.sequence = icmp_hdr->un.echo.sequence;
 
-    switch (icmp_hdr->type)
-    {
-        case ICMP_ECHOREPLY:
-            printf ("Type: ICMP Echo Reply\n");
-            break;
-        case ICMP_DEST_UNREACH:
-            printf ("Type: ICMP Destination Unreachable\n");
-            break;
-        case ICMP_SOURCE_QUENCH:
-            printf ("Type: ICMP Source Quench\n");
-            break;
-        case ICMP_REDIRECT:
-            printf ("Type: ICMP Redirect\n");
-            break;
-        case ICMP_ECHO:
-            printf ("Type: ICMP Echo Request\n");
-            break;
-        case ICMP_TIME_EXCEEDED:
-            printf ("Type: ICMP Time Exceeded\n");
-            break;
-        case ICMP_PARAMETERPROB:
-            printf ("Type: ICMP Parameter Problem\n");
-            break;
-        case ICMP_TIMESTAMP:
-            printf ("Type: ICMP Timestamp Request\n");
-            break;
-        case ICMP_TIMESTAMPREPLY:
-            printf ("Type: ICMP Timestamp Reply\n");
-            break;
-        default:
-            printf ("Type: Unknown ICMP Type\n");
-    }
+    ping_messages_handler (PING);
 
-    // if (icmp_hdr->type == ICMP_ECHOREPLY)
+    // switch (icmp_hdr->type)
     // {
-    //     // printf ("Ping succeeds from %s\n", inet_ntoa (r_addr.sin_addr));
-    // }
-    // else
-    // {
-    //     // printf ("Received non-echo reply type: %d\n", icmp_hdr->type);
+    //     case ICMP_ECHOREPLY:
+    //         printf ("Type: ICMP Echo Reply\n");
+    //         break;
+    //     case ICMP_DEST_UNREACH:
+    //         printf ("Type: ICMP Destination Unreachable\n");
+    //         break;
+    //     case ICMP_SOURCE_QUENCH:
+    //         printf ("Type: ICMP Source Quench\n");
+    //         break;
+    //     case ICMP_REDIRECT:
+    //         printf ("Type: ICMP Redirect\n");
+    //         break;
+    //     case ICMP_ECHO:
+    //         printf ("Type: ICMP Echo Request\n");
+    //         break;
+    //     case ICMP_TIME_EXCEEDED:
+    //         printf ("Type: ICMP Time Exceeded\n");
+    //         break;
+    //     case ICMP_PARAMETERPROB:
+    //         printf ("Type: ICMP Parameter Problem\n");
+    //         break;
+    //     case ICMP_TIMESTAMP:
+    //         printf ("Type: ICMP Timestamp Request\n");
+    //         break;
+    //     case ICMP_TIMESTAMPREPLY:
+    //         printf ("Type: ICMP Timestamp Reply\n");
+    //         break;
+    //     default:
+    //         printf ("Type: Unknown ICMP Type\n");
     // }
 }
 
@@ -114,7 +146,7 @@ recv_icmp ()
  */
 
 void
-ft_ping_coordinator (const char *hostname)
+ping_coord (const char *hostname)
 {
     if (resolve_hostname (hostname) == -1)
     {
@@ -156,8 +188,11 @@ ft_ping_coordinator (const char *hostname)
 
     /* Start ping coordination */
 
-    printf ("PING %s (%s) %lu(%lu) bytes of data.\n", g_ping.sock_info.hostname,
-            g_ping.sock_info.ip_addr, PAYLOAD_SIZE, IP_PACKET_SIZE);
+    // printf ("PING %s (%s) %lu(%lu) bytes of data.\n",
+    // g_ping.sock_info.hostname,
+    //         g_ping.sock_info.ip_addr, PAYLOAD_SIZE, IP_PACKET_SIZE);
+
+    ping_messages_handler (START);
 
     while (1)
     {

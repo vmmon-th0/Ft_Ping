@@ -23,48 +23,6 @@ Options :\n\
 -v, --verbose      verbose output\n");
 }
 
-static int
-resolve_hostname (const char *hostname)
-{
-    struct addrinfo hints, *res, *p;
-    int status;
-
-    memset (&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_RAW;
-
-    if ((status = getaddrinfo (hostname, NULL, &hints, &res)) != 0)
-    {
-        fprintf (stderr, "getaddrinfo: %s\n", gai_strerror (status));
-        return -1;
-    }
-
-    for (p = res; p != NULL; p = p->ai_next)
-    {
-        if (p->ai_family == AF_INET)
-        {
-            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-            void *addr = &(ipv4->sin_addr);
-
-            if (inet_ntop (p->ai_family, addr, g_ping.sock_info.ip_addr,
-                           INET_ADDRSTRLEN)
-                == NULL)
-            {
-                perror ("inet_ntop");
-                freeaddrinfo (res);
-                return -1;
-            }
-
-            // printf ("IPv4 addr for %s: %s\n", hostname,
-            //         g_ping.sock_info.ip_addr);
-            break;
-        }
-    }
-
-    freeaddrinfo (res);
-    return 0;
-}
-
 /**
  * @brief Checks if the program is run with root rights.
  * Creating raw sockets (SOCK_RAW) for protocols like ICMP (IPPROTO_ICMP)
@@ -85,6 +43,13 @@ show_usage_and_exit (int exit_code)
     exit (exit_code);
 }
 
+static void
+handle_sigint (int sig)
+{
+    ping_messages_handler (END);
+    exit (EXIT_SUCCESS);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -96,6 +61,8 @@ main (int argc, char *argv[])
         fprintf (stderr, "Program needs to be run as root\n");
         exit (EXIT_FAILURE);
     }
+
+    signal (SIGINT, handle_sigint);
 
     while ((opt = getopt_long (argc, argv, short_options, long_options,
                                &long_index))
@@ -177,6 +144,6 @@ main (int argc, char *argv[])
     }
 
     argv += optind;
-    ft_ping_coordinator (*argv);
+    ping_coord (*argv);
     return 0;
 }

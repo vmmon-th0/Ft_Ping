@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +22,13 @@
 #define IP_PACKET_SIZE PACKET_SIZE + sizeof (struct iphdr)
 #define PAYLOAD_SIZE PACKET_SIZE - sizeof (struct icmphdr)
 #define TIMEOUT 1
+
+typedef enum
+{
+    START,
+    PING,
+    END
+} MessageType;
 
 struct ping_packet
 {
@@ -59,16 +67,18 @@ struct s_ping
     struct s_options options;
     struct s_sock_info sock_info;
     struct s_rtt rtt_metrics;
+
+    int sequence;
 };
 
 extern struct s_ping g_ping;
 
-void ft_ping_coord (const char *hostname);
+void ping_coord (const char *hostname);
 
 void fill_icmp_packet (struct ping_packet *ping_pkt);
 
 void compute_std_rtt ();
 
-int resolve_hostname (const char *hostname);
+void ping_messages_handler (MessageType type);
 
 #endif
