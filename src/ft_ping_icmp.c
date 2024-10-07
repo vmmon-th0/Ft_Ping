@@ -23,7 +23,7 @@
  */
 
 static uint16_t
-compute_checksum (struct ping_packet *ping_pkt, size_t len)
+compute_checksum_v4 (struct ping_packet_v4 *ping_pkt, size_t len)
 {
     const uint16_t *data = (const void *)ping_pkt;
     uint32_t sum = 0;
@@ -50,25 +50,42 @@ compute_checksum (struct ping_packet *ping_pkt, size_t len)
 }
 
 void
-fill_icmp_packet (struct ping_packet *ping_pkt)
+fill_icmp_packet_v4 (struct ping_packet_v4 *ping_pkt)
 {
     static int sequence = 0;
 
-    memset (ping_pkt, 0, sizeof (struct ping_packet));
+    memset (ping_pkt, 0, sizeof (struct ping_packet_v4));
     ping_pkt->hdr.type = ICMP_ECHO;
     ping_pkt->hdr.code = 0;
-    ping_pkt->hdr.un.echo.id = getpid ();
-    ping_pkt->hdr.un.echo.sequence = sequence++;
+    ping_pkt->hdr.un.echo.id = htons (getpid () & 0xFFFF);
+    ping_pkt->hdr.un.echo.sequence = htons (++sequence);
     memset (ping_pkt->data, 0xA5, sizeof (ping_pkt->data));
     ping_pkt->hdr.checksum = 0;
     ping_pkt->hdr.checksum
-        = compute_checksum (ping_pkt, sizeof (struct ping_packet));
+        = compute_checksum_v4 (ping_pkt, sizeof (struct ping_packet_v4));
+}
+
+void
+fill_icmp_packet_v6 (struct ping_packet_v6 *ping_pkt)
+{
+    static int sequence = 0;
+
+    memset (ping_pkt, 0, sizeof (struct ping_packet_v6));
+    ping_pkt->hdr.icmp6_type = ICMP6_ECHO_REQUEST;
+    ping_pkt->hdr.icmp6_code = 0;
+    uint16_t identifier = getpid () & 0xFFFF;
+    uint16_t seq = ++sequence;
+    ping_pkt->hdr.icmp6_dataun.icmp6_un_data16[0] = htons (identifier);
+    ping_pkt->hdr.icmp6_dataun.icmp6_un_data16[1] = htons (seq);
+    memset (ping_pkt->data, 0xA5, sizeof (ping_pkt->data));
+    /* The checksum will be calculated by the TCP/IP stack. */
+    ping_pkt->hdr.icmp6_cksum = 0;
 }
 
 static int
-verify_checksum (struct ping_packet *ping_pkt)
+verify_checksum (struct ping_packet_v4 *ping_pkt)
 {
     uint16_t computed_checksum
-        = compute_checksum (ping_pkt, sizeof (struct ping_packet));
+        = compute_checksum_v4 (ping_pkt, sizeof (struct ping_packet_v4));
     return (computed_checksum == ping_pkt->hdr.checksum);
 }
