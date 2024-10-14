@@ -1,7 +1,9 @@
 EXEC = ft_ping
 
 CC = clang
-CFLAGS = #-Wall -Wextra -Werror
+# CFLAGS = -Wall -Wextra -Werror
+
+DEBUG_FLAGS = -g -DDEBUG
 
 SRC_DIR = src
 OBJ_DIR = obj
@@ -33,4 +35,10 @@ clean:
 fclean: clean
 	rm -f $(EXEC)
 
-.PHONY: all clean fclean
+DEBUG: CFLAGS += $(DEBUG_FLAGS)
+DEBUG: fclean all
+
+LEAKS: all
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./$(EXEC)
+
+.PHONY: all clean fclean format DEBUG LEAKS

@@ -82,10 +82,12 @@ fill_icmp_packet_v6 (struct ping_packet_v6 *ping_pkt)
     ping_pkt->hdr.icmp6_cksum = 0;
 }
 
-static int
+_Bool
 verify_checksum (struct ping_packet_v4 *ping_pkt)
 {
+    uint16_t received_checksum = ping_pkt->hdr.checksum;
+    ping_pkt->hdr.checksum = 0;
     uint16_t computed_checksum
         = compute_checksum_v4 (ping_pkt, sizeof (struct ping_packet_v4));
-    return (computed_checksum == ping_pkt->hdr.checksum);
+    return (computed_checksum == received_checksum);
 }

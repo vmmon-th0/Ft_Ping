@@ -2,14 +2,13 @@
 
 struct s_ping g_ping;
 
-static char short_options[] = "vhs:c:w:t:46";
+static char short_options[] = "vhs:c:t:46";
 
 static struct option long_options[]
     = { { "verbose", no_argument, NULL, 'v' },
         { "help", no_argument, NULL, 'h' },
         { "packetsize", required_argument, NULL, 's' },
         { "count", required_argument, NULL, 'c' },
-        { "deadline", required_argument, NULL, 'w' },
         { "ttl", required_argument, NULL, 't' },
         { "ipv4", no_argument, NULL, '4' },
         { "ipv6", no_argument, NULL, '6' },
@@ -25,7 +24,6 @@ Options :\n\
   -v, --verbose      verbose output\n\
   -s, --packetsize   set the number of data bytes to be sent\n\
   -c, --count        stop after sending (and receiving) count ECHO_RESPONSE packets\n\
-  -w, --deadline     specify a timeout, in seconds, before ping exits regardless of how many packets have been sent or received\n\
   -t, --ttl          set the IP Time to Live\n\
   -4, --ipv4         use IPv4 only\n\
   -6, --ipv6         use IPv6 only\n");
@@ -52,21 +50,10 @@ show_usage_and_exit (int exit_code)
 }
 
 static void
-handle_sigint (int sig)
+handle_sigint ()
 {
     ping_messages_handler (END);
-
-    struct s_rtt *tmp = g_ping.rtt_metrics_beg;
-
-    while (tmp != NULL)
-    {
-        printf ("%f\n", tmp->std_rtt);
-        tmp = tmp->next;
-    }
-
-    release_rtt_resources ();
-
-    close (g_ping.sock_info.sock_fd);
+    release_resources ();
     exit (EXIT_SUCCESS);
 }
 
@@ -86,6 +73,8 @@ main (int argc, char *argv[])
 
     signal (SIGINT, handle_sigint);
 
+    g_ping.options.ipv = UNSPEC;
+
     while ((opt = getopt_long (argc, argv, short_options, long_options,
                                &long_index))
            != -1)
@@ -94,8 +83,8 @@ main (int argc, char *argv[])
         {
             case 'v':
             {
-                PING_DEBUG ("Verbose mode enabled.\n");
                 g_ping.options.verbose = true;
+                PING_DEBUG ("Verbose mode enabled.\n");
                 break;
             }
             case 'h':
@@ -119,23 +108,6 @@ main (int argc, char *argv[])
                 PING_DEBUG ("Count: %u\n", g_ping.options.count);
                 break;
             }
-            case 'w':
-            {
-                char *endptr;
-                errno = 0;
-                long value = strtol (optarg, &endptr, 10);
-
-                if (errno == ERANGE || value < 0 || value > UINT32_MAX
-                    || *endptr != '\0')
-                {
-                    fprintf (stderr, "Invalid deadline value: %s\n", optarg);
-                    show_usage_and_exit (EXIT_FAILURE);
-                }
-
-                g_ping.options.deadline = (uint32_t)value;
-                PING_DEBUG ("Deadline: %u\n", g_ping.options.deadline);
-                break;
-            }
             case 't':
             {
                 char *endptr;
@@ -155,16 +127,14 @@ main (int argc, char *argv[])
             }
             case '4':
             {
+                g_ping.options.ipv = IPV4;
                 PING_DEBUG ("IPv4 mode enabled.\n");
-                g_ping.options.ipv4 = true;
-                g_ping.options.ipv6 = false;
                 break;
             }
             case '6':
             {
+                g_ping.options.ipv = IPV6;
                 PING_DEBUG ("IPv6 mode enabled.\n");
-                g_ping.options.ipv6 = true;
-                g_ping.options.ipv4 = false;
                 break;
             }
             default:
@@ -182,5 +152,5 @@ main (int argc, char *argv[])
 
     argv += optind;
     ping_coord (*argv);
-    return 0;
+    return EXIT_SUCCESS;
 }

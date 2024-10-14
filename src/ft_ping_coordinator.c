@@ -17,6 +17,7 @@ resolve_hostname (const char *hostname)
 {
     struct addrinfo hints, *res, *p;
     int status;
+    ip_version ipv = UNSPEC;
 
     memset (&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
@@ -31,7 +32,30 @@ resolve_hostname (const char *hostname)
 
     for (p = res; p != NULL; p = p->ai_next)
     {
-        if (p->ai_family == AF_INET6)
+        if (p->ai_family == AF_INET)
+        {
+            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+            void *addr = &(ipv4->sin_addr);
+
+            if (inet_ntop (p->ai_family, addr, g_ping.sock_info.ip_addr,
+                           sizeof (g_ping.sock_info.ip_addr))
+                == NULL)
+            {
+                perror ("inet_ntop IPv4");
+                continue;
+            }
+            memcpy (&g_ping.sock_info.ai, p, sizeof (struct addrinfo));
+            PING_DEBUG ("IPv4 addr for %s: %s\n", hostname,
+                        g_ping.sock_info.ip_addr);
+
+            ipv = IPV4;
+
+            if (g_ping.options.ipv == UNSPEC || g_ping.options.ipv == IPV4)
+            {
+                break;
+            }
+        }
+        else if (p->ai_family == AF_INET6)
         {
             struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
             void *addr = &(ipv6->sin6_addr);
@@ -43,39 +67,20 @@ resolve_hostname (const char *hostname)
                 perror ("inet_ntop IPv6");
                 continue;
             }
-
             memcpy (&g_ping.sock_info.ai, p, sizeof (struct addrinfo));
             PING_DEBUG ("IPv6 addr for %s: %s\n", hostname,
                         g_ping.sock_info.ip_addr);
-            g_ping.options.ipv6 = true;
-            break;
-        }
-    }
 
-    if (p == NULL || g_ping.options.ipv4 == true)
-    {
-        for (p = res; p != NULL; p = p->ai_next)
-        {
-            if (p->ai_family == AF_INET)
+            ipv = IPV6;
+
+            if (g_ping.options.ipv == UNSPEC || g_ping.options.ipv == IPV6)
             {
-                struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-                void *addr = &(ipv4->sin_addr);
-
-                if (inet_ntop (p->ai_family, addr, g_ping.sock_info.ip_addr,
-                               sizeof (g_ping.sock_info.ip_addr))
-                    == NULL)
-                {
-                    perror ("inet_ntop IPv4");
-                    continue;
-                }
-                memcpy (&g_ping.sock_info.ai, p, sizeof (struct addrinfo));
-                PING_DEBUG ("IPv4 addr for %s: %s\n", hostname,
-                            g_ping.sock_info.ip_addr);
-                g_ping.options.ipv6 = false;
                 break;
             }
         }
     }
+
+    g_ping.options.ipv = ipv;
 
     if (res->ai_canonname)
     {
@@ -86,7 +91,7 @@ resolve_hostname (const char *hostname)
 
     freeaddrinfo (res);
 
-    if (p == NULL)
+    if (p == NULL && ipv == UNSPEC)
     {
         fprintf (stderr, "No valid IPv4 or IPv6 address found for %s\n",
                  hostname);
@@ -111,12 +116,11 @@ send_icmp_packet_v4 ()
         == -1)
     {
         perror ("sendto");
-        close (g_ping.sock_info.sock_fd);
-        release_rtt_resources ();
+        release_resources ();
         exit (EXIT_FAILURE);
     }
-    PING_DEBUG ("Ping sent to %s\n",
-                inet_ntoa (g_ping.sock_info.addr_4.sin_addr));
+    ++g_ping.ping_stats.nb_snd;
+    PING_DEBUG ("Ping sent to %s\n", g_ping.sock_info.ip_addr);
 }
 
 static void
@@ -125,7 +129,6 @@ send_icmp_packet_v6 ()
     struct ping_packet_v6 ping_pkt;
 
     fill_icmp_packet_v6 (&ping_pkt);
-
     start_rtt_metrics ();
 
     if (sendto (g_ping.sock_info.sock_fd, &ping_pkt,
@@ -135,12 +138,12 @@ send_icmp_packet_v6 ()
         == -1)
     {
         perror ("sendto");
-        close (g_ping.sock_info.sock_fd);
-        release_rtt_resources ();
+        release_resources ();
         exit (EXIT_FAILURE);
     }
-    PING_DEBUG ("Ping sent to %s\n",
-                inet_ntoa (g_ping.sock_info.addr_6.sin_addr));
+
+    ++g_ping.ping_stats.nb_snd;
+    PING_DEBUG ("Ping sent to %s\n", g_ping.sock_info.ip_addr);
 }
 
 static void
@@ -157,8 +160,7 @@ recv_icmp_packet_v4 ()
         == -1)
     {
         perror ("recvfrom");
-        close (g_ping.sock_info.sock_fd);
-        release_rtt_resources ();
+        release_resources ();
         exit (EXIT_FAILURE);
     }
 
@@ -171,24 +173,32 @@ recv_icmp_packet_v4 ()
     struct icmphdr *icmp_hdr
         = (struct icmphdr *)(recv_packet + ip_hdr->ihl * 4);
 
-    g_ping.ping_state.hopli = ip_hdr->ttl;
-    g_ping.ping_state.sequence = ntohs (icmp_hdr->un.echo.sequence);
+    g_ping.ping_stats.hopli = ip_hdr->ttl;
+    g_ping.ping_stats.sequence = ntohs (icmp_hdr->un.echo.sequence);
 
     PING_DEBUG ("Received ICMP packet:\n");
     PING_DEBUG ("Type: %d\n", icmp_hdr->type);
     PING_DEBUG ("Code: %d\n", icmp_hdr->code);
     PING_DEBUG ("Checksum: %d\n", icmp_hdr->checksum);
-    PING_DEBUG ("ID: %d\n", ntohs (icmp_hdr->un.echo.id));
-    PING_DEBUG ("Sequence: %d\n", g_ping.ping_state.sequence);
+    PING_DEBUG ("Sequence: %d\n", g_ping.ping_stats.sequence);
+    PING_DEBUG ("Identifier: %d\n", ntohs (icmp_hdr->un.echo.id));
+
+    if (verify_checksum ((struct ping_packet_v4 *)icmp_hdr) == false)
+    {
+        fprintf (stderr, "Received corrupted ICMPv4 packet\n");
+        release_resources ();
+        exit (EXIT_FAILURE);
+    }
 
     switch (icmp_hdr->type)
     {
         case ICMP_ECHOREPLY:
             if (icmp_hdr->un.echo.id == htons (getpid ())
                 && icmp_hdr->un.echo.sequence
-                       == htons (g_ping.ping_state.sequence))
+                       == htons (g_ping.ping_stats.sequence))
             {
                 ping_messages_handler (PING);
+                ++g_ping.ping_stats.nb_res;
             }
             break;
         case ICMP_DEST_UNREACH:
@@ -246,16 +256,20 @@ recv_icmp_packet_v6 ()
     if (len == -1)
     {
         perror ("recvmsg");
-        close (g_ping.sock_info.sock_fd);
-        release_rtt_resources ();
+        release_resources ();
         exit (EXIT_FAILURE);
     }
 
-    end_rtt_metrics ();
 
     struct icmp6_hdr *icmp6_recv = (struct icmp6_hdr *)recv_packet;
+    uint8_t type = icmp6_recv->icmp6_type;
 
-    g_ping.ping_state.hopli = -1;
+    if (type == ICMP6_ECHO_REPLY)
+    {
+        end_rtt_metrics ();
+    }
+
+    g_ping.ping_stats.hopli = -1;
     for (cmsg = CMSG_FIRSTHDR (&msg); cmsg != NULL;
          cmsg = CMSG_NXTHDR (&msg, cmsg))
     {
@@ -264,27 +278,33 @@ recv_icmp_packet_v6 ()
         {
             uint8_t hoplimit;
             memcpy (&hoplimit, CMSG_DATA (cmsg), sizeof (hoplimit));
-            g_ping.ping_state.hopli = hoplimit;
+            g_ping.ping_stats.hopli = hoplimit;
             break;
         }
     }
 
-    uint8_t type = icmp6_recv->icmp6_type;
-    g_ping.ping_state.sequence
+    g_ping.ping_stats.sequence
         = ntohs (icmp6_recv->icmp6_dataun.icmp6_un_data16[1]);
 
     PING_DEBUG ("Received ICMPv6 packet:\n");
     PING_DEBUG ("Type: %d\n", type);
     PING_DEBUG ("Code: %d\n", icmp6_recv->icmp6_code);
     PING_DEBUG ("Checksum: %d\n", ntohs (icmp6_recv->icmp6_cksum));
-    PING_DEBUG ("Sequence: %d\n", g_ping.ping_state.sequence);
-    PING_DEBUG ("Hop Limit: %d\n", g_ping.ping_state.hopli);
+    PING_DEBUG ("Sequence: %d\n", g_ping.ping_stats.sequence);
+    PING_DEBUG ("Hop Limit: %d\n", g_ping.ping_stats.hopli);
+    PING_DEBUG ("Identifier: %d\n", ntohs (icmp6_recv->icmp6_dataun.icmp6_un_data16[0]));
 
     if (type == ND_ROUTER_ADVERT || type == ND_NEIGHBOR_SOLICIT
         || type == ND_NEIGHBOR_ADVERT)
     {
         PING_DEBUG ("Ignored ICMPv6 type %d from %s.\n", type,
                     g_ping.sock_info.ip_addr);
+        ssize_t n = recvmsg(g_ping.sock_info.sock_fd, &msg, MSG_PEEK);
+        printf("len -> %d, type -> %d", n, type);
+        if (n >= 1) {
+            printf ("data is here...\n");
+            recv_icmp_packet_v6 ();
+        }
         return;
     }
 
@@ -292,10 +312,11 @@ recv_icmp_packet_v6 ()
     {
         case ICMP6_ECHO_REPLY:
             if (icmp6_recv->icmp6_dataun.icmp6_un_data16[0] == htons (getpid ())
-                && g_ping.ping_state.sequence
+                && g_ping.ping_stats.sequence
                        == ntohs (icmp6_recv->icmp6_dataun.icmp6_un_data16[1]))
             {
                 ping_messages_handler (PING);
+                ++g_ping.ping_stats.nb_res;
             }
             break;
 
@@ -345,8 +366,6 @@ recv_icmp_packet_v6 ()
 void
 ping_coord (const char *hostname)
 {
-    /* Hostname resolution */
-
     if (resolve_hostname (hostname) == -1)
     {
         fprintf (stderr, "Failed to resolve hostname\n");
@@ -355,83 +374,12 @@ ping_coord (const char *hostname)
 
     g_ping.sock_info.hostname = hostname;
 
-    /* Socket preparation */
-
-    if ((g_ping.sock_info.sock_fd
-         = socket (g_ping.options.ipv6 ? AF_INET6 : AF_INET, SOCK_RAW,
-                   g_ping.options.ipv6 ? IPPROTO_ICMPV6 : IPPROTO_ICMP))
-        == -1)
-    {
-        perror ("socket");
-        exit (EXIT_FAILURE);
-    }
-
-    /* Socket options */
-
-    if (g_ping.options.ipv6 == true)
-    {
-        memset (&g_ping.sock_info.addr_6, 0, sizeof (g_ping.sock_info.addr_6));
-        g_ping.sock_info.addr_6.sin6_family = AF_INET6;
-        g_ping.sock_info.addr_6.sin6_port = htons (0);
-
-        if (inet_pton (AF_INET6, g_ping.sock_info.ip_addr,
-                       &g_ping.sock_info.addr_6.sin6_addr)
-            != 1)
-        {
-            perror ("inet_pton IPv6");
-            exit (EXIT_FAILURE);
-        }
-    }
-    else
-    {
-        memset (&g_ping.sock_info.addr_4, 0, sizeof (g_ping.sock_info.addr_4));
-        g_ping.sock_info.addr_4.sin_family = AF_INET;
-        g_ping.sock_info.addr_4.sin_port = htons (0);
-        if (!(g_ping.sock_info.addr_4.sin_addr.s_addr
-              = inet_addr (g_ping.sock_info.ip_addr)))
-        {
-            fprintf (stderr, "inet_addr failed ipv4 convert\n");
-            exit (EXIT_FAILURE);
-        }
-    }
-
-    int hopli = g_ping.options.ttl ? g_ping.options.ttl : 64;
-
-    /* Configure the IP_TTL option to define the Time To Live (TTL) of IP
-     * packets sent by the socket, using the IP protocol level (IPPROTO_IP). */
-
-    if (setsockopt (g_ping.sock_info.sock_fd,
-                    g_ping.options.ipv6 ? IPPROTO_IPV6 : IPPROTO_IP,
-                    g_ping.options.ipv6 ? IPV6_UNICAST_HOPS : IP_TTL, &hopli,
-                    sizeof (hopli))
-        < 0)
-    {
-        perror ("setsockopt failed");
-        exit (EXIT_FAILURE);
-    }
-
-    if (g_ping.options.ipv6 == true)
-    {
-        int on = 1;
-
-        if (setsockopt (g_ping.sock_info.sock_fd, IPPROTO_IPV6,
-                        IPV6_RECVHOPLIMIT, &on, sizeof (on))
-            < 0)
-        {
-            perror ("setsockopt IPV6_RECVHOPLIMIT");
-            close (g_ping.sock_info.sock_fd);
-            exit (EXIT_FAILURE);
-        }
-    }
-
-    /* Start ping coordination */
-
+    ping_socket_init ();
     ping_messages_handler (START);
 
     while (1)
     {
-        if (g_ping.options.ipv4 == false
-            && g_ping.sock_info.ai.ai_family == AF_INET6)
+        if (g_ping.options.ipv == IPV6)
         {
             send_icmp_packet_v6 ();
             recv_icmp_packet_v6 ();
@@ -443,13 +391,19 @@ ping_coord (const char *hostname)
         }
 
         if (g_ping.options.count
-            && g_ping.ping_state.nb_res >= g_ping.options.count)
+            && g_ping.ping_stats.nb_snd >= g_ping.options.count)
         {
             break;
         }
 
+        if (rtt_timeout () == true)
+        {
+            fprintf (stderr, "ping reached timeout: %f\n",
+                     g_ping.ping_stats.timeout_threshold);
+            break;
+        }
         sleep (1);
     }
-
-    close (g_ping.sock_info.sock_fd);
+    ping_messages_handler (END);
+    release_resources ();
 }

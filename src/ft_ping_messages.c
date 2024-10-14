@@ -7,7 +7,7 @@ static const char *PING_MESSAGE_FORMAT
 
 static const char *END_MESSAGE_HEADER_FORMAT = "--- %s ping statistics ---\n";
 static const char *END_MESSAGE_STATS_FORMAT
-    = "%d packets transmitted, %d received, %.0f%% packet loss, time %ldms\n";
+    = "%d packets transmitted, %d received, %.0f%% packet loss, time %.0fms\n";
 static const char *END_MESSAGE_RTT_FORMAT
     = "rtt min/avg/max/mdev = %.3f/%.3f/%.3f/%.3f ms\n";
 
@@ -27,27 +27,34 @@ ping_messages_handler (MessageType type)
                     g_ping.sock_info.ai.ai_canonname);
 
             printf ("Selected options: Verbose: %s, IPv4: %s, IPv6: %s, Count: "
-                    "%u, Deadline: %u, TTL: %u\n\n",
+                    "%u, TTL: %u\n\n",
                     g_ping.options.verbose ? "Yes" : "No",
-                    g_ping.options.ipv4 ? "Yes" : "No",
-                    g_ping.options.ipv6 ? "Yes" : "No", g_ping.options.count,
-                    g_ping.options.deadline, g_ping.options.ttl);
+                    g_ping.options.ipv == IPV4 ? "Yes" : "No",
+                    g_ping.options.ipv == IPV6 ? "Yes" : "No",
+                    g_ping.options.count, g_ping.options.ttl);
         }
         printf (START_MESSAGE_FORMAT, g_ping.sock_info.hostname,
                 g_ping.sock_info.ip_addr,
-                g_ping.options.ipv6 ? ICMPV6_PAYLOAD_SIZE : ICMPV4_PAYLOAD_SIZE,
-                g_ping.options.ipv6 ? ICMPV6_PACKET_SIZE : ICMPV4_PACKET_SIZE);
+                g_ping.options.ipv == IPV6 ? ICMPV6_PAYLOAD_SIZE
+                                           : ICMPV4_PAYLOAD_SIZE,
+                g_ping.options.ipv == IPV6 ? ICMPV6_PACKET_SIZE
+                                           : ICMPV4_PACKET_SIZE);
     }
     else if (type == PING)
     {
         printf (PING_MESSAGE_FORMAT, g_ping.sock_info.hostname,
-                g_ping.sock_info.ip_addr, g_ping.ping_state.sequence,
-                g_ping.ping_state.hopli, g_ping.rtt_metrics->std_rtt);
+                g_ping.sock_info.ip_addr, g_ping.ping_stats.sequence,
+                g_ping.ping_stats.hopli, g_ping.rtt_metrics->rtt);
     }
     else if (type == END)
     {
+        compute_rtt_stats ();
         printf (END_MESSAGE_HEADER_FORMAT, g_ping.sock_info.hostname);
-        printf ("N/A\n");
-        printf ("N/A\n");
+        printf (END_MESSAGE_STATS_FORMAT, g_ping.ping_stats.nb_snd,
+                g_ping.ping_stats.nb_res, g_ping.ping_stats.pkt_loss,
+                g_ping.ping_stats.ping_session);
+        printf (END_MESSAGE_RTT_FORMAT, g_ping.ping_stats.min,
+                g_ping.ping_stats.avg, g_ping.ping_stats.max,
+                g_ping.ping_stats.dev_rtt);
     }
 }
