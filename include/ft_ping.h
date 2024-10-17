@@ -36,13 +36,14 @@
 #define RTT_DEVIATION_FACTOR 0.25
 
 #define TIMEOUT 1
+#define INTERFACE_NAME "enp4s0"
 
 typedef enum
 {
     START,
     PING,
     END
-} MessageType;
+} message;
 
 typedef enum
 {
@@ -134,7 +135,7 @@ void fill_icmp_packet_v4 (struct ping_packet_v4 *ping_pkt);
 void fill_icmp_packet_v6 (struct ping_packet_v6 *ping_pkt);
 void start_rtt_metrics ();
 void end_rtt_metrics ();
-void ping_messages_handler (MessageType type);
+void ping_messages_handler (message type);
 void release_resources ();
 void compute_rtt_stats ();
 void ping_socket_init ();

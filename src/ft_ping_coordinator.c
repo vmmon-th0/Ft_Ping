@@ -151,20 +151,27 @@ recv_icmp_packet_v4 ()
 {
     char recv_packet[PACKET_SIZE + sizeof (struct iphdr)];
     struct sockaddr_in r_addr;
+    ssize_t recv_bytes;
     socklen_t addr_len;
 
     addr_len = sizeof (r_addr);
 
-    if (recvfrom (g_ping.sock_info.sock_fd, recv_packet, sizeof (recv_packet),
-                  0, (struct sockaddr *)&r_addr, &addr_len)
-        == -1)
+    recv_bytes = recvfrom (g_ping.sock_info.sock_fd, recv_packet, sizeof (recv_packet),
+                  0, (struct sockaddr *)&r_addr, &addr_len);
+
+    if (recv_bytes <= 0)
     {
-        perror ("recvfrom");
+        if (recv_bytes == -1)
+        {
+            perror ("recvfrom");
+        }
+        else
+        {
+            fprintf(stderr, "The peer has performed an orderly shutdown.");
+        }
         release_resources ();
         exit (EXIT_FAILURE);
     }
-
-    end_rtt_metrics ();
 
     /* The response includes the IP header followed by the ICMP header. It is
      * necessary to extract the IP header to access the ICMP header. */
@@ -197,30 +204,18 @@ recv_icmp_packet_v4 ()
                 && icmp_hdr->un.echo.sequence
                        == htons (g_ping.ping_stats.sequence))
             {
+                end_rtt_metrics ();
                 ping_messages_handler (PING);
                 ++g_ping.ping_stats.nb_res;
             }
             break;
         case ICMP_DEST_UNREACH:
-            switch (icmp_hdr->code)
-            {
-                case ICMP_NET_UNREACH:
-                    printf ("Destination Unreachable: Network unreachable.\n");
-                    break;
-                case ICMP_HOST_UNREACH:
-                    printf ("Destination Unreachable: Host unreachable.\n");
-                    break;
-                case ICMP_PORT_UNREACH:
-                    printf ("Destination Unreachable: Port unreachable.\n");
-                    break;
-                case ICMP_FRAG_NEEDED:
-                    printf ("Destination Unreachable: Fragmentation needed but "
-                            "DF flag set.\n");
-                    break;
-                default:
-                    printf ("Destination Unreachable: Code %d.\n",
-                            icmp_hdr->code);
-            }
+            printf ("Destination Unreachable: Code %d.\n",
+                    icmp_hdr->code);
+            break;
+        case ICMP6_PACKET_TOO_BIG:
+            printf ("Packet Too Big: MTU size is %u.\n",
+                    ntohl (icmp_hdr->un.frag.mtu));
             break;
         case ICMP_TIME_EXCEEDED:
             printf ("Time Exceeded: TTL expired for %s.\n",
@@ -241,7 +236,7 @@ recv_icmp_packet_v6 ()
     struct iovec iov;
     char control_buf[CONTROL_BUFFER_SIZE];
     struct cmsghdr *cmsg;
-    ssize_t len;
+    ssize_t recv_bytes;
 
     iov.iov_base = recv_packet;
     iov.iov_len = sizeof (recv_packet);
@@ -252,22 +247,24 @@ recv_icmp_packet_v6 ()
     msg.msg_control = control_buf;
     msg.msg_controllen = sizeof (control_buf);
 
-    len = recvmsg (g_ping.sock_info.sock_fd, &msg, 0);
-    if (len == -1)
+    recv_bytes = recvmsg (g_ping.sock_info.sock_fd, &msg, 0);
+
+    if (recv_bytes <= 0)
     {
-        perror ("recvmsg");
+        if (recv_bytes == -1)
+        {
+            perror ("recvmsg");
+        }
+        else
+        {
+            fprintf(stderr, "The peer has performed an orderly shutdown.");
+        }
         release_resources ();
         exit (EXIT_FAILURE);
     }
 
-
-    struct icmp6_hdr *icmp6_recv = (struct icmp6_hdr *)recv_packet;
-    uint8_t type = icmp6_recv->icmp6_type;
-
-    if (type == ICMP6_ECHO_REPLY)
-    {
-        end_rtt_metrics ();
-    }
+    struct icmp6_hdr *icmp6_hdr = (struct icmp6_hdr *)recv_packet;
+    uint8_t type = icmp6_hdr->icmp6_type;
 
     g_ping.ping_stats.hopli = -1;
     for (cmsg = CMSG_FIRSTHDR (&msg); cmsg != NULL;
@@ -284,61 +281,38 @@ recv_icmp_packet_v6 ()
     }
 
     g_ping.ping_stats.sequence
-        = ntohs (icmp6_recv->icmp6_dataun.icmp6_un_data16[1]);
+        = ntohs (icmp6_hdr->icmp6_dataun.icmp6_un_data16[1]);
 
     PING_DEBUG ("Received ICMPv6 packet:\n");
     PING_DEBUG ("Type: %d\n", type);
-    PING_DEBUG ("Code: %d\n", icmp6_recv->icmp6_code);
-    PING_DEBUG ("Checksum: %d\n", ntohs (icmp6_recv->icmp6_cksum));
+    PING_DEBUG ("Code: %d\n", icmp6_hdr->icmp6_code);
+    PING_DEBUG ("Checksum: %d\n", ntohs (icmp6_hdr->icmp6_cksum));
     PING_DEBUG ("Sequence: %d\n", g_ping.ping_stats.sequence);
     PING_DEBUG ("Hop Limit: %d\n", g_ping.ping_stats.hopli);
-    PING_DEBUG ("Identifier: %d\n", ntohs (icmp6_recv->icmp6_dataun.icmp6_un_data16[0]));
-
-    if (type == ND_ROUTER_ADVERT || type == ND_NEIGHBOR_SOLICIT
-        || type == ND_NEIGHBOR_ADVERT)
-    {
-        PING_DEBUG ("Ignored ICMPv6 type %d from %s.\n", type,
-                    g_ping.sock_info.ip_addr);
-        ssize_t n = recvmsg(g_ping.sock_info.sock_fd, &msg, MSG_PEEK);
-        printf("len -> %d, type -> %d", n, type);
-        if (n >= 1) {
-            printf ("data is here...\n");
-            recv_icmp_packet_v6 ();
-        }
-        return;
-    }
+    PING_DEBUG ("Identifier: %d\n",
+                ntohs (icmp6_hdr->icmp6_dataun.icmp6_un_data16[0]));
 
     switch (type)
     {
         case ICMP6_ECHO_REPLY:
-            if (icmp6_recv->icmp6_dataun.icmp6_un_data16[0] == htons (getpid ())
+            if (icmp6_hdr->icmp6_dataun.icmp6_un_data16[0] == htons (getpid ())
                 && g_ping.ping_stats.sequence
-                       == ntohs (icmp6_recv->icmp6_dataun.icmp6_un_data16[1]))
+                       == ntohs (icmp6_hdr->icmp6_dataun.icmp6_un_data16[1]))
             {
+                end_rtt_metrics ();
                 ping_messages_handler (PING);
                 ++g_ping.ping_stats.nb_res;
             }
             break;
 
         case ICMP6_DST_UNREACH:
-            switch (icmp6_recv->icmp6_code)
-            {
-                case ICMP6_DST_UNREACH_NOROUTE:
-                    printf (
-                        "Destination Unreachable: No route to destination.\n");
-                    break;
-                case ICMP6_DST_UNREACH_ADMIN:
-                    printf ("Destination Unreachable: Administratively "
-                            "prohibited.\n");
-                    break;
-                case ICMP6_DST_UNREACH_BEYONDSCOPE:
-                    printf ("Destination Unreachable: Beyond scope of source "
-                            "address.\n");
-                    break;
-                default:
-                    printf ("Destination Unreachable: Code %d.\n",
-                            icmp6_recv->icmp6_code);
-            }
+            printf ("Destination Unreachable: Code %d.\n",
+                    icmp6_hdr->icmp6_code);
+            break;
+
+        case ICMP6_PACKET_TOO_BIG:
+            printf ("Packet Too Big: MTU size is %u.\n",
+                    ntohl (icmp6_hdr->icmp6_mtu));
             break;
 
         case ICMP6_TIME_EXCEEDED:
@@ -348,7 +322,7 @@ recv_icmp_packet_v6 ()
 
         default:
             printf ("Unhandled ICMPv6 type %d received from %s.\n",
-                    icmp6_recv->icmp6_type, g_ping.sock_info.ip_addr);
+                    icmp6_hdr->icmp6_type, g_ping.sock_info.ip_addr);
             break;
     }
 
@@ -373,6 +347,7 @@ ping_coord (const char *hostname)
     }
 
     g_ping.sock_info.hostname = hostname;
+    g_ping.ping_stats.timeout_threshold = TIMEOUT;
 
     ping_socket_init ();
     ping_messages_handler (START);
@@ -402,6 +377,7 @@ ping_coord (const char *hostname)
                      g_ping.ping_stats.timeout_threshold);
             break;
         }
+
         sleep (1);
     }
     ping_messages_handler (END);

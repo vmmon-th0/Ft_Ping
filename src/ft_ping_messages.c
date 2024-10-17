@@ -12,7 +12,7 @@ static const char *END_MESSAGE_RTT_FORMAT
     = "rtt min/avg/max/mdev = %.3f/%.3f/%.3f/%.3f ms\n";
 
 void
-ping_messages_handler (MessageType type)
+ping_messages_handler (message type)
 {
     if (type == START)
     {

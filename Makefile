@@ -39,6 +39,6 @@ DEBUG: CFLAGS += $(DEBUG_FLAGS)
 DEBUG: fclean all
 
 LEAKS: all
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./$(EXEC)
+	sudo valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./$(EXEC) google.com
 
 .PHONY: all clean fclean format DEBUG LEAKS

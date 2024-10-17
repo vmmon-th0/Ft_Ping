@@ -106,6 +106,26 @@ compute_timeout_interval_rtt ()
     g_ping.ping_stats.timeout_threshold = timeout_interval;
 }
 
+
+/**
+ * @brief Computes statistics for round-trip times (RTT) in a ping session.
+ *
+ * This function calculates the minimum, maximum, and average RTT values
+ * based on the collected RTT metrics. It also computes the total duration
+ * of the ping session in milliseconds and the packet loss percentage.
+ *
+ * The following steps are performed:
+ * - Initialize min, max, and avg RTT values.
+ * - Iterate through the RTT metrics linked list to find min, max, and compute
+ *   the sum for average RTT.
+ * - If RTT metrics are present, calculate the average. Otherwise, set RTT
+ *   values to 0.
+ * - Calculate the total session time in milliseconds by combining seconds
+ *   and nanoseconds.
+ * - Compute the packet loss percentage based on the number of sent and
+ *   received packets.
+ */
+
 void
 compute_rtt_stats ()
 {
@@ -184,11 +204,10 @@ init_rtt_node ()
 
     memset (rtt, 0, sizeof (struct s_rtt));
 
-    // Test to see if fprintf + strerror is better than perror
-
     if (rtt == NULL)
     {
-        fprintf (stderr, "Error: %s \n", strerror (errno));
+        perror("malloc");
+        release_resources();
         exit (EXIT_FAILURE);
     }
 
@@ -206,21 +225,17 @@ rtt_timeout ()
     double elapsed_nsec
         = (double)(now.tv_nsec - g_ping.rtt_metrics->start.tv_nsec) / 1000000.0;
     double elapsed_ms = elapsed_sec + elapsed_nsec;
-
-    // PING_DEBUG ("ping deviation: %f\n", g_ping.ping_stats.dev_rtt);
-    // PING_DEBUG ("ping estimated_rtt: %f\n", g_ping.ping_stats.estimated_rtt);
-    // PING_DEBUG ("ping last rtt: %f\n", g_ping.rtt_metrics->rtt);
-    // PING_DEBUG ("ping elapsed time now - start: %f\n", elapsed_ms);
-    // PING_DEBUG ("ping reached timeout threshold: %f\n",
-    //             g_ping.ping_stats.timeout_threshold);
-
-    return elapsed_ms > g_ping.ping_stats.timeout_threshold;
+    return elapsed_ms >= g_ping.ping_stats.timeout_threshold;
 }
 
 void
 start_rtt_metrics ()
 {
-    init_rtt_node ();
+    /* This allows us to avoid adding a link unnecessarily if the results of the last trip are not measurable. */
+    if (g_ping.rtt_metrics == NULL || g_ping.rtt_metrics->end.tv_sec != 0 && g_ping.rtt_metrics->end.tv_nsec != 0)
+    {
+        init_rtt_node ();
+    }
     /* clock_gettime(CLOCK_MONOTONIC, ...) is preferable to gettimeofday(...)
      * because it assures us stability, precision for Intervals and security
      * against System Manipulation */

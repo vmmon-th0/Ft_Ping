@@ -3,7 +3,9 @@
 void
 ping_socket_init ()
 {
-    /* Socket preparation */
+    /* SOCK_RAW provides access to internal network protocols and interfaces,
+     * which is essential for creating, sending and receiving ICMP packets, only
+     * available to users with root-user authority. */
 
     if ((g_ping.sock_info.sock_fd
          = socket (g_ping.options.ipv == IPV6 ? AF_INET6 : AF_INET, SOCK_RAW,
@@ -14,7 +16,8 @@ ping_socket_init ()
         exit (EXIT_FAILURE);
     }
 
-    /* Socket options */
+    /* setup destination socket address structure for preparing the socket to
+     * send ICMPv4/v6 Echo Request messages */
 
     if (g_ping.options.ipv == IPV6)
     {
@@ -26,6 +29,7 @@ ping_socket_init ()
             != 1)
         {
             perror ("inet_pton");
+            release_resources ();
             exit (EXIT_FAILURE);
         }
     }
@@ -38,14 +42,16 @@ ping_socket_init ()
               = inet_addr (g_ping.sock_info.ip_addr)))
         {
             fprintf (stderr, "inet_addr\n");
+            release_resources ();
             exit (EXIT_FAILURE);
         }
     }
 
-    int hopli = g_ping.options.ttl ? g_ping.options.ttl : 64;
+    /* The purpose of TTL is to prevent packets from circulating indefinitely in
+     * case of routing loops. "Time Exceeded" is returned to the user if the
+     * value has been decremented to 0 by routers. */
 
-    /* Configure the IP_TTL option to define the Time To Live (TTL) of IP
-     * packets sent by the socket, using the IP protocol level (IPPROTO_IP). */
+    int hopli = g_ping.options.ttl ? g_ping.options.ttl : 64;
 
     if (setsockopt (g_ping.sock_info.sock_fd,
                     g_ping.options.ipv == IPV6 ? IPPROTO_IPV6 : IPPROTO_IP,
@@ -54,12 +60,26 @@ ping_socket_init ()
         < 0)
     {
         perror ("setsockopt");
+        release_resources ();
         exit (EXIT_FAILURE);
     }
 
     if (g_ping.options.ipv == IPV6)
     {
         int on = 1;
+        struct icmp6_filter filter;
+
+        /* Tell which ICMPs we are interested in (very nice). */
+
+        ICMP6_FILTER_SETBLOCKALL (&filter);
+        ICMP6_FILTER_SETPASS (ICMP6_ECHO_REPLY, &filter);
+        ICMP6_FILTER_SETPASS (ICMP6_DST_UNREACH, &filter);
+        ICMP6_FILTER_SETPASS (ICMP6_PACKET_TOO_BIG, &filter);
+        ICMP6_FILTER_SETPASS (ICMP6_TIME_EXCEEDED, &filter);
+        ICMP6_FILTER_SETPASS (ICMP6_PARAM_PROB, &filter);
+
+        /* configures to receive the Hop Limit value from incoming packets by
+         * setting the IPV6_RECVHOPLIMIT socket option. */
 
         if (setsockopt (g_ping.sock_info.sock_fd, IPPROTO_IPV6,
                         IPV6_RECVHOPLIMIT, &on, sizeof (on))
@@ -69,7 +89,24 @@ ping_socket_init ()
             release_resources ();
             exit (EXIT_FAILURE);
         }
+
+        /* Applies filtering on ICMPv6 packets, allowing us to remove some
+         * message handling complexity on receiving */
+
+        if (setsockopt (g_ping.sock_info.sock_fd, IPPROTO_ICMPV6, ICMP6_FILTER,
+                        &filter, sizeof (filter))
+            < 0)
+        {
+            perror ("setsockopt");
+            release_resources ();
+            exit (EXIT_FAILURE);
+        }
     }
+
+    /* Socket options IP_TOS and IPV6_TCLASS are used to set the Type of Service
+     * (ToS) and Traffic Class, respectively. These settings determine how
+     * routers and network devices handle and prioritize packets as they travel
+     * to their destination. */
 
     int optval = 0x10;
 
@@ -83,4 +120,13 @@ ping_socket_init ()
         release_resources ();
         exit (EXIT_FAILURE);
     }
+
+    // /* Disable listening for requests from the n interface */
+    // if (setsockopt(g_ping.sock_info.sock_fd, SOL_SOCKET, SO_BINDTODEVICE, INTERFACE_NAME, strlen(INTERFACE_NAME) + 1) == -1)
+    // {
+    //     perror("setsockopt");
+    //     release_resources();
+    //     exit(EXIT_FAILURE);
+    // }
+
 }
