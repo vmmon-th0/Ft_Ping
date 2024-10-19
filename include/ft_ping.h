@@ -36,7 +36,6 @@
 #define RTT_DEVIATION_FACTOR 0.25
 
 #define TIMEOUT 1
-#define INTERFACE_NAME "enp4s0"
 
 typedef enum
 {
@@ -103,6 +102,9 @@ struct s_rtt
 struct s_ping_stats
 {
     int sequence;
+    ssize_t bytes_recv;
+    _Bool ready_send;
+
     uint8_t hopli;
 
     uint16_t nb_snd;

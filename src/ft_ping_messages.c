@@ -3,7 +3,7 @@
 static const char *START_MESSAGE_FORMAT
     = "PING %s (%s) %lu(%lu) bytes of data.\n";
 static const char *PING_MESSAGE_FORMAT
-    = "64 bytes from %s (%s): icmp_seq=%d ttl=%hhu time=%.2fms\n";
+    = "%d bytes from %s (%s): icmp_seq=%d ttl=%hhu time=%.2fms\n";
 
 static const char *END_MESSAGE_HEADER_FORMAT = "--- %s ping statistics ---\n";
 static const char *END_MESSAGE_STATS_FORMAT
@@ -42,7 +42,7 @@ ping_messages_handler (message type)
     }
     else if (type == PING)
     {
-        printf (PING_MESSAGE_FORMAT, g_ping.sock_info.hostname,
+        printf (PING_MESSAGE_FORMAT, g_ping.ping_stats.bytes_recv, g_ping.sock_info.hostname,
                 g_ping.sock_info.ip_addr, g_ping.ping_stats.sequence,
                 g_ping.ping_stats.hopli, g_ping.rtt_metrics->rtt);
     }

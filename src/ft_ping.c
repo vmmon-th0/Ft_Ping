@@ -84,7 +84,7 @@ main (int argc, char *argv[])
             case 'v':
             {
                 g_ping.options.verbose = true;
-                PING_DEBUG ("Verbose mode enabled.\n");
+                // PING_DEBUG ("Verbose mode enabled.\n");
                 break;
             }
             case 'h':
@@ -105,7 +105,7 @@ main (int argc, char *argv[])
                 }
 
                 g_ping.options.count = (uint32_t)value;
-                PING_DEBUG ("Count: %u\n", g_ping.options.count);
+                // PING_DEBUG ("Count: %u\n", g_ping.options.count);
                 break;
             }
             case 't':
@@ -122,19 +122,19 @@ main (int argc, char *argv[])
                 }
 
                 g_ping.options.ttl = (uint8_t)value;
-                PING_DEBUG ("TTL: %u\n", g_ping.options.ttl);
+                // PING_DEBUG ("TTL: %u\n", g_ping.options.ttl);
                 break;
             }
             case '4':
             {
                 g_ping.options.ipv = IPV4;
-                PING_DEBUG ("IPv4 mode enabled.\n");
+                // PING_DEBUG ("IPv4 mode enabled.\n");
                 break;
             }
             case '6':
             {
                 g_ping.options.ipv = IPV6;
-                PING_DEBUG ("IPv6 mode enabled.\n");
+                // PING_DEBUG ("IPv6 mode enabled.\n");
                 break;
             }
             default:
