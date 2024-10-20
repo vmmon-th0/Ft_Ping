@@ -35,16 +35,20 @@ compute_estimated_rtt ()
     }
 
     double sample_rtt = g_ping.rtt_metrics->rtt;
-    double estimated_rtt = g_ping.ping_stats.estimated_rtt;
+    double estimated_rtt;
     double alpha = RTT_WEIGHT_FACTOR;
+
+    // 0 but esimtaed rtt is more precise than that. maintenant il se peut quon
+    // rentre dedans a nouveau par probleme de precision.
     if (g_ping.ping_stats.estimated_rtt <= 0)
     {
         g_ping.ping_stats.estimated_rtt = g_ping.rtt_metrics->rtt;
         g_ping.ping_stats.dev_rtt = g_ping.rtt_metrics->rtt / 2;
         return;
     }
-    estimated_rtt = ((1 - alpha) * estimated_rtt) + (alpha * sample_rtt);
 
+    estimated_rtt = ((1 - alpha) * g_ping.ping_stats.estimated_rtt)
+                    + (alpha * sample_rtt);
     g_ping.ping_stats.estimated_rtt = estimated_rtt;
 }
 
@@ -105,7 +109,6 @@ compute_timeout_interval_rtt ()
 
     g_ping.ping_stats.timeout_threshold = timeout_interval;
 }
-
 
 /**
  * @brief Computes statistics for round-trip times (RTT) in a ping session.
@@ -206,8 +209,8 @@ init_rtt_node ()
 
     if (rtt == NULL)
     {
-        perror("malloc");
-        release_resources();
+        perror ("malloc");
+        release_resources ();
         exit (EXIT_FAILURE);
     }
 
@@ -231,8 +234,11 @@ rtt_timeout ()
 void
 start_rtt_metrics ()
 {
-    /* This allows us to avoid adding a link unnecessarily if the results of the last trip are not measurable. */
-    if (g_ping.rtt_metrics == NULL || g_ping.rtt_metrics->end.tv_sec != 0 && g_ping.rtt_metrics->end.tv_nsec != 0)
+    /* This allows us to avoid adding a link unnecessarily if the results of the
+     * last trip are not measurable. */
+    if (g_ping.rtt_metrics == NULL
+        || g_ping.rtt_metrics->end.tv_sec != 0
+               && g_ping.rtt_metrics->end.tv_nsec != 0)
     {
         init_rtt_node ();
     }
@@ -250,4 +256,11 @@ end_rtt_metrics ()
     compute_estimated_rtt ();
     compute_deviation_rtt ();
     compute_timeout_interval_rtt ();
+
+    if (rtt_timeout () == true)
+    {
+        fprintf (stderr, "ping reached timeout: %f\n",
+                 g_ping.ping_stats.timeout_threshold);
+        g_ping.ping_info.read_loop = false;
+    }
 }

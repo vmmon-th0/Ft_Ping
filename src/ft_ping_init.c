@@ -1,6 +1,15 @@
 #include "ft_ping.h"
 
 void
+ping_init_g_info()
+{
+    g_ping.options.ipv = UNSPEC;
+    g_ping.ping_info.read_loop = true;
+    g_ping.ping_info.ready_send = true;
+    g_ping.ping_stats.timeout_threshold = TIMEOUT;
+}
+
+void
 ping_socket_init ()
 {
     /* SOCK_RAW provides access to internal network protocols and interfaces,
@@ -120,13 +129,4 @@ ping_socket_init ()
         release_resources ();
         exit (EXIT_FAILURE);
     }
-
-    // /* Disable listening for requests from the n interface */
-    // if (setsockopt(g_ping.sock_info.sock_fd, SOL_SOCKET, SO_BINDTODEVICE, INTERFACE_NAME, strlen(INTERFACE_NAME) + 1) == -1)
-    // {
-    //     perror("setsockopt");
-    //     release_resources();
-    //     exit(EXIT_FAILURE);
-    // }
-
 }

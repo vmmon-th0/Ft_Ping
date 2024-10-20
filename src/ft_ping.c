@@ -73,7 +73,7 @@ main (int argc, char *argv[])
 
     signal (SIGINT, handle_sigint);
 
-    g_ping.options.ipv = UNSPEC;
+    ping_init_g_info();
 
     while ((opt = getopt_long (argc, argv, short_options, long_options,
                                &long_index))
@@ -152,5 +152,5 @@ main (int argc, char *argv[])
 
     argv += optind;
     ping_coord (*argv);
-    return EXIT_SUCCESS;
+    return g_ping.ping_info.exit_code;
 }

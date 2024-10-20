@@ -42,9 +42,13 @@ ping_messages_handler (message type)
     }
     else if (type == PING)
     {
-        printf (PING_MESSAGE_FORMAT, g_ping.ping_stats.bytes_recv, g_ping.sock_info.hostname,
-                g_ping.sock_info.ip_addr, g_ping.ping_stats.sequence,
-                g_ping.ping_stats.hopli, g_ping.rtt_metrics->rtt);
+        printf (PING_MESSAGE_FORMAT,
+                g_ping.options.ipv == IPV6
+                    ? g_ping.ping_info.bytes_recv
+                    : g_ping.ping_info.bytes_recv - sizeof (struct iphdr),
+                g_ping.sock_info.hostname, g_ping.sock_info.ip_addr,
+                g_ping.ping_info.sequence, g_ping.ping_stats.hopli,
+                g_ping.rtt_metrics->rtt);
     }
     else if (type == END)
     {

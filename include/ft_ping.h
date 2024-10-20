@@ -99,12 +99,17 @@ struct s_rtt
     struct s_rtt *next;
 };
 
-struct s_ping_stats
+struct s_ping_info
 {
     int sequence;
     ssize_t bytes_recv;
     _Bool ready_send;
+    _Bool read_loop;
+    _Bool exit_code;
+};
 
+struct s_ping_stats
+{
     uint8_t hopli;
 
     uint16_t nb_snd;
@@ -126,6 +131,7 @@ struct s_ping
     struct s_options options;
     struct s_rtt *rtt_metrics;
     struct s_rtt *rtt_metrics_beg;
+    struct s_ping_info ping_info;
     struct s_sock_info sock_info;
     struct s_ping_stats ping_stats;
 };
@@ -141,6 +147,7 @@ void ping_messages_handler (message type);
 void release_resources ();
 void compute_rtt_stats ();
 void ping_socket_init ();
+void ping_init_g_info();
 _Bool rtt_timeout ();
 _Bool verify_checksum (struct ping_packet_v4 *ping_pkt);
 
