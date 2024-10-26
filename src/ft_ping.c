@@ -2,12 +2,11 @@
 
 struct s_ping g_ping;
 
-static char short_options[] = "vhs:c:t:46";
+static char short_options[] = "vhc:t:46";
 
 static struct option long_options[]
     = { { "verbose", no_argument, NULL, 'v' },
         { "help", no_argument, NULL, 'h' },
-        { "packetsize", required_argument, NULL, 's' },
         { "count", required_argument, NULL, 'c' },
         { "ttl", required_argument, NULL, 't' },
         { "ipv4", no_argument, NULL, '4' },
@@ -22,7 +21,6 @@ Usage: ping [OPTION]... [ADDRESS]...\n\
 Options :\n\
   -h, --help         display this help and exit\n\
   -v, --verbose      verbose output\n\
-  -s, --packetsize   set the number of data bytes to be sent\n\
   -c, --count        stop after sending (and receiving) count ECHO_RESPONSE packets\n\
   -t, --ttl          set the IP Time to Live\n\
   -4, --ipv4         use IPv4 only\n\
