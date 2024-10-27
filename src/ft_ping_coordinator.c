@@ -334,12 +334,6 @@ recv_icmp_packet_v6 ()
     return;
 }
 
-static void
-handle_alarm (int sig)
-{
-    g_ping.ping_info.ready_send = true;
-}
-
 /**
  * @brief Supervises the steps of the ping diagnosis.
  * This function is the central point regarding the supervision of the steps to
@@ -357,7 +351,6 @@ ping_coord (const char *hostname)
         exit (EXIT_FAILURE);
     }
 
-    signal (SIGALRM, handle_alarm);
     ping_socket_init ();
     ping_messages_handler (START);
 

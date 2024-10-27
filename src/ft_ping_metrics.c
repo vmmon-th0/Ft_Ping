@@ -237,8 +237,8 @@ start_rtt_metrics ()
     /* This allows us to avoid adding a link unnecessarily if the results of the
      * last trip are not measurable. */
     if (g_ping.rtt_metrics == NULL
-        || g_ping.rtt_metrics->end.tv_sec != 0
-               && g_ping.rtt_metrics->end.tv_nsec != 0)
+        || (g_ping.rtt_metrics->end.tv_sec != 0
+               && g_ping.rtt_metrics->end.tv_nsec != 0))
     {
         init_rtt_node ();
     }

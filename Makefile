@@ -1,7 +1,7 @@
 EXEC = ft_ping
 
 CC = clang
-# CFLAGS = -Wall -Wextra -Werror
+CFLAGS = -Wall -Wextra -Werror
 
 DEBUG_FLAGS = -g -DDEBUG
 
@@ -35,10 +35,11 @@ clean:
 fclean: clean
 	rm -f $(EXEC)
 
-DEBUG: CFLAGS += $(DEBUG_FLAGS)
-DEBUG: fclean all
+debug: CFLAGS += $(DEBUG_FLAGS)
 
-LEAKS: all
-	sudo valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./$(EXEC) google.com
+debug: fclean all
 
-.PHONY: all clean fclean format DEBUG LEAKS
+leaks: all
+	sudo valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./$(EXEC) -c 5 google.com
+
+.PHONY: all clean fclean format debug leaks

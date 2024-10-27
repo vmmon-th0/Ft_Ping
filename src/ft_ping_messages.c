@@ -7,7 +7,7 @@ static const char *PING_MESSAGE_FORMAT
 
 static const char *END_MESSAGE_HEADER_FORMAT = "--- %s ping statistics ---\n";
 static const char *END_MESSAGE_STATS_FORMAT
-    = "%d packets transmitted, %d received, %.0f%% packet loss, time %.0fms\n";
+    = "%d packets transmitted, %d received, %.0f%% packet loss, time %.0f ms\n";
 static const char *END_MESSAGE_RTT_FORMAT
     = "rtt min/avg/max/mdev = %.3f/%.3f/%.3f/%.3f ms\n";
 

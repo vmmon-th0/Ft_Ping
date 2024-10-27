@@ -48,11 +48,18 @@ show_usage_and_exit (int exit_code)
 }
 
 static void
-handle_sigint ()
+handle_sig (int sig)
 {
-    ping_messages_handler (END);
-    release_resources ();
-    exit (EXIT_SUCCESS);
+    if (sig == SIGALRM)
+    {
+        g_ping.ping_info.ready_send = true;
+    }
+    else if (sig == SIGINT)
+    {
+        ping_messages_handler (END);
+        release_resources ();
+        exit (EXIT_SUCCESS);
+    }
 }
 
 int
@@ -69,7 +76,8 @@ main (int argc, char *argv[])
         exit (EXIT_FAILURE);
     }
 
-    signal (SIGINT, handle_sigint);
+    signal (SIGINT, handle_sig);
+    signal (SIGALRM, handle_sig);
 
     ping_init_g_info();
 
@@ -82,7 +90,6 @@ main (int argc, char *argv[])
             case 'v':
             {
                 g_ping.options.verbose = true;
-                // PING_DEBUG ("Verbose mode enabled.\n");
                 break;
             }
             case 'h':
@@ -103,7 +110,6 @@ main (int argc, char *argv[])
                 }
 
                 g_ping.options.count = (uint32_t)value;
-                // PING_DEBUG ("Count: %u\n", g_ping.options.count);
                 break;
             }
             case 't':
@@ -120,19 +126,16 @@ main (int argc, char *argv[])
                 }
 
                 g_ping.options.ttl = (uint8_t)value;
-                // PING_DEBUG ("TTL: %u\n", g_ping.options.ttl);
                 break;
             }
             case '4':
             {
                 g_ping.options.ipv = IPV4;
-                // PING_DEBUG ("IPv4 mode enabled.\n");
                 break;
             }
             case '6':
             {
                 g_ping.options.ipv = IPV6;
-                // PING_DEBUG ("IPv6 mode enabled.\n");
                 break;
             }
             default:
