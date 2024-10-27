@@ -185,7 +185,7 @@ recv_icmp_packet_v4 ()
     struct icmphdr *icmp_hdr
         = (struct icmphdr *)(recv_packet + ip_hdr->ihl * 4);
 
-    g_ping.ping_stats.hopli = ip_hdr->ttl;
+    g_ping.ping_info.hopli = ip_hdr->ttl;
     g_ping.ping_info.sequence = ntohs (icmp_hdr->un.echo.sequence);
 
     // PING_DEBUG ("Received ICMP packet:\n");
@@ -275,7 +275,7 @@ recv_icmp_packet_v6 ()
     struct icmp6_hdr *icmp6_hdr = (struct icmp6_hdr *)recv_packet;
     uint8_t type = icmp6_hdr->icmp6_type;
 
-    g_ping.ping_stats.hopli = -1;
+    g_ping.ping_info.hopli = -1;
     for (cmsg = CMSG_FIRSTHDR (&msg); cmsg != NULL;
          cmsg = CMSG_NXTHDR (&msg, cmsg))
     {
@@ -284,7 +284,7 @@ recv_icmp_packet_v6 ()
         {
             uint8_t hoplimit;
             memcpy (&hoplimit, CMSG_DATA (cmsg), sizeof (hoplimit));
-            g_ping.ping_stats.hopli = hoplimit;
+            g_ping.ping_info.hopli = hoplimit;
             break;
         }
     }
@@ -297,7 +297,7 @@ recv_icmp_packet_v6 ()
     // PING_DEBUG ("Code: %d\n", icmp6_hdr->icmp6_code);
     // PING_DEBUG ("Checksum: %d\n", ntohs (icmp6_hdr->icmp6_cksum));
     // PING_DEBUG ("Sequence: %d\n", g_ping.ping_info.sequence);
-    // PING_DEBUG ("Hop Limit: %d\n", g_ping.ping_stats.hopli);
+    // PING_DEBUG ("Hop Limit: %d\n", g_ping.ping_info.hopli);
     // PING_DEBUG ("Identifier: %d\n",
     //             ntohs (icmp6_hdr->icmp6_dataun.icmp6_un_data16[0]));
 

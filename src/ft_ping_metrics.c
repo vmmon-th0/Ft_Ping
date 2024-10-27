@@ -4,16 +4,31 @@
  * https://datatracker.ietf.org/doc/html/rfc6298
  */
 
+static double
+compute_elapsed_ms(struct timespec start, struct timespec end)
+{
+    double elapsed_sec = (double)(end.tv_sec
+                                  - start.tv_sec)
+                         * 1000.0;
+    double elapsed_nsec;
+
+    if (end.tv_nsec >= start.tv_nsec)
+    {
+        elapsed_nsec = (double)(end.tv_nsec - start.tv_nsec) / 1e6;
+    }
+    else
+    {
+        elapsed_sec -= 1000.0;
+        elapsed_nsec = (double)(end.tv_nsec + 1000000000 - start.tv_nsec) / 1e6;
+    }
+
+    return elapsed_sec + elapsed_nsec;
+}
+
 static void
 compute_std_rtt ()
 {
-    double rtt_sec = (double)(g_ping.rtt_metrics->end.tv_sec
-                              - g_ping.rtt_metrics->start.tv_sec)
-                     * 1000.0;
-    double rtt_nsec = (double)(g_ping.rtt_metrics->end.tv_nsec
-                               - g_ping.rtt_metrics->start.tv_nsec)
-                      / 1000000.0;
-    g_ping.rtt_metrics->rtt = rtt_sec + rtt_nsec;
+    g_ping.rtt_metrics->rtt = compute_elapsed_ms(g_ping.rtt_metrics->start, g_ping.rtt_metrics->end);
 }
 
 /**
@@ -164,14 +179,8 @@ compute_rtt_stats ()
         g_ping.ping_stats.max = 0.0;
         g_ping.ping_stats.avg = 0.0;
     }
-
-    double elapsed_sec = (double)(g_ping.rtt_metrics->end.tv_sec
-                                  - g_ping.rtt_metrics_beg->start.tv_sec)
-                         * 1000.0;
-    double elapsed_nsec = (double)(g_ping.rtt_metrics->end.tv_nsec
-                                   - g_ping.rtt_metrics_beg->start.tv_nsec)
-                          / 1000000.0;
-    double elapsed_ms = elapsed_sec + elapsed_nsec;
+    
+    double elapsed_ms = compute_elapsed_ms(g_ping.rtt_metrics_beg->start, g_ping.rtt_metrics->end);
 
     g_ping.ping_stats.ping_session = elapsed_ms;
 
@@ -222,12 +231,7 @@ rtt_timeout ()
 {
     struct timespec now;
     clock_gettime (CLOCK_MONOTONIC, &now);
-
-    double elapsed_sec
-        = (double)(now.tv_sec - g_ping.rtt_metrics->start.tv_sec) * 1000.0;
-    double elapsed_nsec
-        = (double)(now.tv_nsec - g_ping.rtt_metrics->start.tv_nsec) / 1000000.0;
-    double elapsed_ms = elapsed_sec + elapsed_nsec;
+    double elapsed_ms = compute_elapsed_ms(g_ping.rtt_metrics->start, now);
     return elapsed_ms >= g_ping.ping_stats.timeout_threshold;
 }
 

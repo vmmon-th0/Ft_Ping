@@ -47,7 +47,7 @@ ping_messages_handler (message type)
                     ? g_ping.ping_info.bytes_recv
                     : g_ping.ping_info.bytes_recv - sizeof (struct iphdr),
                 g_ping.sock_info.hostname, g_ping.sock_info.ip_addr,
-                g_ping.ping_info.sequence, g_ping.ping_stats.hopli,
+                g_ping.ping_info.sequence, g_ping.ping_info.hopli,
                 g_ping.rtt_metrics->rtt);
     }
     else if (type == END)

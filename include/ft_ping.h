@@ -102,6 +102,7 @@ struct s_rtt
 struct s_ping_info
 {
     int sequence;
+    uint8_t hopli;
     ssize_t bytes_recv;
     _Bool ready_send;
     _Bool read_loop;
@@ -110,8 +111,6 @@ struct s_ping_info
 
 struct s_ping_stats
 {
-    uint8_t hopli;
-
     uint16_t nb_snd;
     uint16_t nb_res;
 
