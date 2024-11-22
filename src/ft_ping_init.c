@@ -4,9 +4,9 @@ void
 ping_init_g_info()
 {
     g_ping.options.ipv = UNSPEC;
-    g_ping.ping_info.read_loop = true;
-    g_ping.ping_info.ready_send = true;
-    g_ping.ping_stats.timeout_threshold = TIMEOUT;
+    g_ping.info.read_loop = true;
+    g_ping.info.ready_send = true;
+    g_ping.stats.timeout_threshold = TIMEOUT;
 }
 
 void

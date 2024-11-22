@@ -55,16 +55,16 @@ compute_estimated_rtt ()
 
     // 0 but esimtaed rtt is more precise than that. maintenant il se peut quon
     // rentre dedans a nouveau par probleme de precision.
-    if (g_ping.ping_stats.estimated_rtt <= 0)
+    if (g_ping.stats.estimated_rtt <= 0)
     {
-        g_ping.ping_stats.estimated_rtt = g_ping.rtt_metrics->rtt;
-        g_ping.ping_stats.dev_rtt = g_ping.rtt_metrics->rtt / 2;
+        g_ping.stats.estimated_rtt = g_ping.rtt_metrics->rtt;
+        g_ping.stats.dev_rtt = g_ping.rtt_metrics->rtt / 2;
         return;
     }
 
-    estimated_rtt = ((1 - alpha) * g_ping.ping_stats.estimated_rtt)
+    estimated_rtt = ((1 - alpha) * g_ping.stats.estimated_rtt)
                     + (alpha * sample_rtt);
-    g_ping.ping_stats.estimated_rtt = estimated_rtt;
+    g_ping.stats.estimated_rtt = estimated_rtt;
 }
 
 /**
@@ -83,20 +83,20 @@ compute_estimated_rtt ()
 static void
 compute_deviation_rtt ()
 {
-    if (g_ping.rtt_metrics->rtt <= 0 || g_ping.ping_stats.estimated_rtt <= 0)
+    if (g_ping.rtt_metrics->rtt <= 0 || g_ping.stats.estimated_rtt <= 0)
     {
         return;
     }
 
     double dev_rtt;
     double sample_rtt = g_ping.rtt_metrics->rtt;
-    double estimated_rtt = g_ping.ping_stats.estimated_rtt;
+    double estimated_rtt = g_ping.stats.estimated_rtt;
     double beta = RTT_DEVIATION_FACTOR;
 
-    dev_rtt = (1 - beta) * g_ping.ping_stats.dev_rtt
+    dev_rtt = (1 - beta) * g_ping.stats.dev_rtt
               + beta * fabs (sample_rtt - estimated_rtt);
 
-    g_ping.ping_stats.dev_rtt = dev_rtt;
+    g_ping.stats.dev_rtt = dev_rtt;
 }
 
 /**
@@ -114,15 +114,15 @@ compute_timeout_interval_rtt ()
 {
     double timeout_interval;
 
-    if (g_ping.ping_stats.dev_rtt <= 0 || g_ping.ping_stats.estimated_rtt <= 0)
+    if (g_ping.stats.dev_rtt <= 0 || g_ping.stats.estimated_rtt <= 0)
     {
         return;
     }
 
     timeout_interval
-        = 4 * g_ping.ping_stats.dev_rtt + g_ping.ping_stats.estimated_rtt;
+        = 4 * g_ping.stats.dev_rtt + g_ping.stats.estimated_rtt;
 
-    g_ping.ping_stats.timeout_threshold = timeout_interval;
+    g_ping.stats.timeout_threshold = timeout_interval;
 }
 
 /**
@@ -150,20 +150,20 @@ compute_rtt_stats ()
     double sum = 0.0;
     int i = 0;
 
-    g_ping.ping_stats.min = DBL_MAX;
-    g_ping.ping_stats.max = DBL_MIN;
-    g_ping.ping_stats.avg = 0.0;
+    g_ping.stats.min = DBL_MAX;
+    g_ping.stats.max = DBL_MIN;
+    g_ping.stats.avg = 0.0;
 
     struct s_rtt *tmp = g_ping.rtt_metrics_beg;
     while (tmp != NULL)
     {
-        if (tmp->rtt < g_ping.ping_stats.min)
+        if (tmp->rtt < g_ping.stats.min)
         {
-            g_ping.ping_stats.min = tmp->rtt;
+            g_ping.stats.min = tmp->rtt;
         }
-        if (tmp->rtt > g_ping.ping_stats.max)
+        if (tmp->rtt > g_ping.stats.max)
         {
-            g_ping.ping_stats.max = tmp->rtt;
+            g_ping.stats.max = tmp->rtt;
         }
         sum += tmp->rtt;
         i++;
@@ -171,25 +171,25 @@ compute_rtt_stats ()
     }
     if (i > 0)
     {
-        g_ping.ping_stats.avg = sum / i;
+        g_ping.stats.avg = sum / i;
     }
     else
     {
-        g_ping.ping_stats.min = 0.0;
-        g_ping.ping_stats.max = 0.0;
-        g_ping.ping_stats.avg = 0.0;
+        g_ping.stats.min = 0.0;
+        g_ping.stats.max = 0.0;
+        g_ping.stats.avg = 0.0;
     }
     
     double elapsed_ms = compute_elapsed_ms(g_ping.rtt_metrics_beg->start, g_ping.rtt_metrics->end);
 
-    g_ping.ping_stats.ping_session = elapsed_ms;
+    g_ping.stats.ping_session = elapsed_ms;
 
     double packet_loss;
 
-    packet_loss = ((double)(g_ping.ping_stats.nb_snd - g_ping.ping_stats.nb_res)
-                   / g_ping.ping_stats.nb_snd)
+    packet_loss = ((double)(g_ping.stats.nb_snd - g_ping.stats.nb_res)
+                   / g_ping.stats.nb_snd)
                   * 100;
-    g_ping.ping_stats.pkt_loss = packet_loss;
+    g_ping.stats.pkt_loss = packet_loss;
 }
 
 static void
@@ -232,7 +232,7 @@ rtt_timeout ()
     struct timespec now;
     clock_gettime (CLOCK_MONOTONIC, &now);
     double elapsed_ms = compute_elapsed_ms(g_ping.rtt_metrics->start, now);
-    return elapsed_ms >= g_ping.ping_stats.timeout_threshold;
+    return elapsed_ms >= g_ping.stats.timeout_threshold;
 }
 
 void
@@ -264,7 +264,7 @@ end_rtt_metrics ()
     if (rtt_timeout () == true)
     {
         fprintf (stderr, "ping reached timeout: %f\n",
-                 g_ping.ping_stats.timeout_threshold);
-        g_ping.ping_info.read_loop = false;
+                 g_ping.stats.timeout_threshold);
+        g_ping.info.read_loop = false;
     }
 }

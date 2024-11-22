@@ -99,7 +99,7 @@ struct s_rtt
     struct s_rtt *next;
 };
 
-struct s_ping_info
+struct s_info
 {
     int sequence;
     uint8_t hopli;
@@ -109,7 +109,7 @@ struct s_ping_info
     _Bool exit_code;
 };
 
-struct s_ping_stats
+struct s_stats
 {
     uint16_t nb_snd;
     uint16_t nb_res;
@@ -130,9 +130,9 @@ struct s_ping
     struct s_options options;
     struct s_rtt *rtt_metrics;
     struct s_rtt *rtt_metrics_beg;
-    struct s_ping_info ping_info;
+    struct s_info info;
     struct s_sock_info sock_info;
-    struct s_ping_stats ping_stats;
+    struct s_stats stats;
 };
 
 extern struct s_ping g_ping;

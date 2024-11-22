@@ -52,7 +52,7 @@ handle_sig (int sig)
 {
     if (sig == SIGALRM)
     {
-        g_ping.ping_info.ready_send = true;
+        g_ping.info.ready_send = true;
     }
     else if (sig == SIGINT)
     {
@@ -153,5 +153,5 @@ main (int argc, char *argv[])
 
     argv += optind;
     ping_coord (*argv);
-    return g_ping.ping_info.exit_code;
+    return g_ping.info.exit_code;
 }

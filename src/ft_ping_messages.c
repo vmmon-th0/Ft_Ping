@@ -44,21 +44,21 @@ ping_messages_handler (message type)
     {
         printf (PING_MESSAGE_FORMAT,
                 g_ping.options.ipv == IPV6
-                    ? g_ping.ping_info.bytes_recv
-                    : g_ping.ping_info.bytes_recv - sizeof (struct iphdr),
+                    ? g_ping.info.bytes_recv
+                    : g_ping.info.bytes_recv - sizeof (struct iphdr),
                 g_ping.sock_info.hostname, g_ping.sock_info.ip_addr,
-                g_ping.ping_info.sequence, g_ping.ping_info.hopli,
+                g_ping.info.sequence, g_ping.info.hopli,
                 g_ping.rtt_metrics->rtt);
     }
     else if (type == END)
     {
         compute_rtt_stats ();
         printf (END_MESSAGE_HEADER_FORMAT, g_ping.sock_info.hostname);
-        printf (END_MESSAGE_STATS_FORMAT, g_ping.ping_stats.nb_snd,
-                g_ping.ping_stats.nb_res, g_ping.ping_stats.pkt_loss,
-                g_ping.ping_stats.ping_session);
-        printf (END_MESSAGE_RTT_FORMAT, g_ping.ping_stats.min,
-                g_ping.ping_stats.avg, g_ping.ping_stats.max,
-                g_ping.ping_stats.dev_rtt);
+        printf (END_MESSAGE_STATS_FORMAT, g_ping.stats.nb_snd,
+                g_ping.stats.nb_res, g_ping.stats.pkt_loss,
+                g_ping.stats.ping_session);
+        printf (END_MESSAGE_RTT_FORMAT, g_ping.stats.min,
+                g_ping.stats.avg, g_ping.stats.max,
+                g_ping.stats.dev_rtt);
     }
 }

@@ -121,7 +121,7 @@ send_icmp_packet_v4 ()
         release_resources ();
         exit (EXIT_FAILURE);
     }
-    ++g_ping.ping_stats.nb_snd;
+    ++g_ping.stats.nb_snd;
     // PING_DEBUG ("Ping sent to %s\n", g_ping.sock_info.ip_addr);
 }
 
@@ -144,7 +144,7 @@ send_icmp_packet_v6 ()
         exit (EXIT_FAILURE);
     }
 
-    ++g_ping.ping_stats.nb_snd;
+    ++g_ping.stats.nb_snd;
     // PING_DEBUG ("Ping sent to %s\n", g_ping.sock_info.ip_addr);
 }
 
@@ -157,17 +157,17 @@ recv_icmp_packet_v4 ()
 
     addr_len = sizeof (r_addr);
 
-    g_ping.ping_info.bytes_recv
+    g_ping.info.bytes_recv
         = recvfrom (g_ping.sock_info.sock_fd, recv_packet, sizeof (recv_packet),
                     MSG_DONTWAIT, (struct sockaddr *)&r_addr, &addr_len);
 
-    if (g_ping.ping_info.bytes_recv <= 0)
+    if (g_ping.info.bytes_recv <= 0)
     {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
         {
             return;
         }
-        if (g_ping.ping_info.bytes_recv == -1)
+        if (g_ping.info.bytes_recv == -1)
         {
             perror ("recvfrom");
         }
@@ -175,7 +175,7 @@ recv_icmp_packet_v4 ()
         {
             fprintf (stderr, "The peer has performed an orderly shutdown.");
         }
-        g_ping.ping_info.read_loop = g_ping.ping_info.exit_code = false;
+        g_ping.info.read_loop = g_ping.info.exit_code = false;
     }
 
     /* The response includes the IP header followed by the ICMP header. It is
@@ -185,20 +185,20 @@ recv_icmp_packet_v4 ()
     struct icmphdr *icmp_hdr
         = (struct icmphdr *)(recv_packet + ip_hdr->ihl * 4);
 
-    g_ping.ping_info.hopli = ip_hdr->ttl;
-    g_ping.ping_info.sequence = ntohs (icmp_hdr->un.echo.sequence);
+    g_ping.info.hopli = ip_hdr->ttl;
+    g_ping.info.sequence = ntohs (icmp_hdr->un.echo.sequence);
 
     // PING_DEBUG ("Received ICMP packet:\n");
     // PING_DEBUG ("Type: %d\n", icmp_hdr->type);
     // PING_DEBUG ("Code: %d\n", icmp_hdr->code);
     // PING_DEBUG ("Checksum: %d\n", icmp_hdr->checksum);
-    // PING_DEBUG ("Sequence: %d\n", g_ping.ping_info.sequence);
+    // PING_DEBUG ("Sequence: %d\n", g_ping.info.sequence);
     // PING_DEBUG ("Identifier: %d\n", ntohs (icmp_hdr->un.echo.id));
 
     if (verify_checksum ((struct ping_packet_v4 *)icmp_hdr) == false)
     {
         fprintf (stderr, "Received corrupted ICMPv4 packet\n");
-        g_ping.ping_info.read_loop = false;
+        g_ping.info.read_loop = false;
     }
 
     switch (icmp_hdr->type)
@@ -206,11 +206,11 @@ recv_icmp_packet_v4 ()
         case ICMP_ECHOREPLY:
             if (icmp_hdr->un.echo.id == htons (getpid ())
                 && icmp_hdr->un.echo.sequence
-                       == htons (g_ping.ping_info.sequence))
+                       == htons (g_ping.info.sequence))
             {
                 end_rtt_metrics ();
                 ping_messages_handler (PING);
-                ++g_ping.ping_stats.nb_res;
+                ++g_ping.stats.nb_res;
             }
             break;
         case ICMP_ECHO:
@@ -252,16 +252,16 @@ recv_icmp_packet_v6 ()
     msg.msg_control = control_buf;
     msg.msg_controllen = sizeof (control_buf);
 
-    g_ping.ping_info.bytes_recv
+    g_ping.info.bytes_recv
         = recvmsg (g_ping.sock_info.sock_fd, &msg, MSG_DONTWAIT);
 
-    if (g_ping.ping_info.bytes_recv <= 0)
+    if (g_ping.info.bytes_recv <= 0)
     {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
         {
             return;
         }
-        if (g_ping.ping_info.bytes_recv == -1)
+        if (g_ping.info.bytes_recv == -1)
         {
             perror ("recvmsg");
         }
@@ -269,13 +269,13 @@ recv_icmp_packet_v6 ()
         {
             fprintf (stderr, "The peer has performed an orderly shutdown.");
         }
-        g_ping.ping_info.read_loop = g_ping.ping_info.exit_code = false;
+        g_ping.info.read_loop = g_ping.info.exit_code = false;
     }
 
     struct icmp6_hdr *icmp6_hdr = (struct icmp6_hdr *)recv_packet;
     uint8_t type = icmp6_hdr->icmp6_type;
 
-    g_ping.ping_info.hopli = -1;
+    g_ping.info.hopli = -1;
     for (cmsg = CMSG_FIRSTHDR (&msg); cmsg != NULL;
          cmsg = CMSG_NXTHDR (&msg, cmsg))
     {
@@ -284,20 +284,20 @@ recv_icmp_packet_v6 ()
         {
             uint8_t hoplimit;
             memcpy (&hoplimit, CMSG_DATA (cmsg), sizeof (hoplimit));
-            g_ping.ping_info.hopli = hoplimit;
+            g_ping.info.hopli = hoplimit;
             break;
         }
     }
 
-    g_ping.ping_info.sequence
+    g_ping.info.sequence
         = ntohs (icmp6_hdr->icmp6_dataun.icmp6_un_data16[1]);
 
     // PING_DEBUG ("Received ICMPv6 packet:\n");
     // PING_DEBUG ("Type: %d\n", type);
     // PING_DEBUG ("Code: %d\n", icmp6_hdr->icmp6_code);
     // PING_DEBUG ("Checksum: %d\n", ntohs (icmp6_hdr->icmp6_cksum));
-    // PING_DEBUG ("Sequence: %d\n", g_ping.ping_info.sequence);
-    // PING_DEBUG ("Hop Limit: %d\n", g_ping.ping_info.hopli);
+    // PING_DEBUG ("Sequence: %d\n", g_ping.info.sequence);
+    // PING_DEBUG ("Hop Limit: %d\n", g_ping.info.hopli);
     // PING_DEBUG ("Identifier: %d\n",
     //             ntohs (icmp6_hdr->icmp6_dataun.icmp6_un_data16[0]));
 
@@ -305,12 +305,12 @@ recv_icmp_packet_v6 ()
     {
         case ICMP6_ECHO_REPLY:
             if (icmp6_hdr->icmp6_dataun.icmp6_un_data16[0] == htons (getpid ())
-                && g_ping.ping_info.sequence
+                && g_ping.info.sequence
                        == ntohs (icmp6_hdr->icmp6_dataun.icmp6_un_data16[1]))
             {
                 end_rtt_metrics ();
                 ping_messages_handler (PING);
-                ++g_ping.ping_stats.nb_res;
+                ++g_ping.stats.nb_res;
             }
             break;
         case ICMP6_DST_UNREACH:
@@ -354,11 +354,11 @@ ping_coord (const char *hostname)
     ping_socket_init ();
     ping_messages_handler (START);
 
-    while (g_ping.ping_info.read_loop)
+    while (g_ping.info.read_loop)
     {
-        if (g_ping.ping_info.ready_send == true)
+        if (g_ping.info.ready_send == true)
         {
-            g_ping.ping_info.ready_send = false;
+            g_ping.info.ready_send = false;
             g_ping.options.ipv == IPV6 ? send_icmp_packet_v6 ()
                                        : send_icmp_packet_v4 ();
             alarm (1);
@@ -368,7 +368,7 @@ ping_coord (const char *hostname)
                                    : recv_icmp_packet_v4 ();
 
         if (g_ping.options.count
-            && g_ping.ping_stats.nb_snd >= g_ping.options.count)
+            && g_ping.stats.nb_snd >= g_ping.options.count)
         {
             break;
         }
